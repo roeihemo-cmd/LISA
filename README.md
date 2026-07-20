@@ -1,52 +1,85 @@
-# LiDAR ADAS Simulator
+# 🛰️ LiDAR ADAS Simulator
 
 An interactive, physics-based **LiDAR + Autonomous Emergency Braking (ADAS)** simulator.
 It models the full optical signal chain end-to-end — a Gaussian laser pulse propagating
 through atmosphere, returning buried in noise, recovered by a matched filter — and feeds the
-estimated range into a physics-based autonomous decision system (AEB / Lane Merge / Adaptive Cruise).
+estimated range into a physics-based autonomous driving system (AEB / Lane Merge / Adaptive
+Cruise / Roundabout).
 
-## Highlights
+## ▶️ Play it now (live, no install)
 
-- **Real signal processing** — Gaussian pulse, Beer–Lambert atmospheric attenuation, optical
-  radar equation, AWGN receiver, matched-filter pulse compression, MAD-based detection.
-- **2D scanning point cloud** — an angular scan fan renders detections on the target's bumper.
-- **Autonomous decision logic** — braking distance `v²/(2a)` + reaction buffer + closing-rate
-  gate; chooses **AEB**, **Lane Merge**, or **Adaptive-Cruise Follow** from physics alone.
-- **Two front-ends** — a native 60 FPS **Pygame** desktop app and a self-contained **web** build.
+### **https://roeihemo-cmd.github.io/LISA/**
 
-## Run — desktop (Pygame)
+Opens in any browser on desktop or mobile — nothing to install. (Runs entirely client-side.)
+
+## Controls
+
+- **Scenario Select** — open the picker to choose a driving scenario (preview + challenge).
+- **Vehicle Preset** — Tesla Model 3 / Toyota Corolla / Heavy Truck (each with its own μ, acceleration, deceleration and actuator delay).
+- **Sliders** — Speed, Fog/Dust (α), Reflectivity (ρ), Noise (σ).
+- **Click the car** → live physics spec sheet · **Double-click** → double the speed.
+- **[i] buttons** → learn the equation behind each value.
+
+## Scenarios
+
+| Scenario | What happens |
+|---|---|
+| **Cut-In** | A car merges into our lane — detect and slow / follow. |
+| **Hard Brake** | Lead vehicle brakes hard — full AEB to a stop. |
+| **Pedestrian** | Low-reflectivity (ρ=0.1) pedestrian crossing — weak echo, hard to detect. |
+| **Child + Ball** | Child crosses after a ball — short TTC ⇒ full AEB, or smooth avoidance at low speed. |
+| **Heavy Fog** | Beer–Lambert attenuation blinds the sensor at range. |
+| **Static Obstacle** | Barrier/cone — stop or steer around by braking distance. |
+| **Roundabout** | Top-down circuit: slow to the safe cornering speed and drive the arc. |
+
+## The engineering
+
+**Signal chain (unchanged, real DSP):** Gaussian pulse → optical radar equation → Beer–Lambert
+atmospheric attenuation → AWGN receiver → matched-filter pulse compression → MAD-based
+detection → range estimate `R̂ = c·τ̂/2`, smoothed by an 8-frame moving average.
+
+**Autonomous decision (physics):**
+
+```
+D_required = V·(T_DSP + T_filter + T_actuator) + V²/(2·μ·g) + D_buffer
+```
+
+- Braking decelerates at **a = μ·g** — so a Tesla (μ=0.90) stops farther from the target,
+  while a truck (μ=0.60) needs many more metres and stops much closer.
+- **TTC = R / (V − V_target)** drives Forward Collision Warning and the AEB-vs-Lane-Merge choice.
+- Vulnerable road users: **TTC ≤ 1.2 s** or high speed ⇒ full AEB; low speed ⇒ smooth lane-shift.
+- Roundabout: **V_max = √(μ·g·r)** safe cornering speed.
+
+The model reference (every equation, with term-by-term explanations) lives in
+[`docs/physics.html`](docs/physics.html).
+
+## Repository layout
+
+```
+docs/
+├── index.html        # the live web simulator (served by GitHub Pages)
+├── simulator.html    # simulator source (single self-contained file)
+└── physics.html      # model / equation reference
+index.html            # root copy of the simulator (for the Pages root URL)
+
+lidar_sim/            # original Python implementation (Streamlit + Pygame desktop app)
+├── physics/          # waveform, optical channel, AWGN receiver
+├── dsp/              # matched filter, detection, moving-average, safety model
+├── desktop/          # Pygame app (LiDARSystem, AutonomousVehicle, SimulationApp)
+└── tests/            # numerical physics tests
+```
+
+## Run the Python versions (optional)
 
 ```bash
 pip install -r lidar_sim/requirements.txt
-python -m lidar_sim.desktop.app
+python -m lidar_sim.desktop.app       # native 60 FPS desktop app
+# or
+streamlit run lidar_sim/app.py        # web dashboard
+pytest lidar_sim/tests/               # physics tests
 ```
 
-Controls: `SPACE` random scenario · `1`/`2`/`3` force target (static / 50 km/h / brake-threat) ·
-`H` toggle equations · sliders for speed, fog, power, reflectivity, noise.
+## Tech
 
-## Run — web
-
-Open [`docs/simulator.html`](docs/simulator.html) in any browser — no dependencies.
-
-## Tests
-
-```bash
-pytest lidar_sim/tests/
-```
-
-## Structure
-
-```
-lidar_sim/
-├── physics/     # waveform, optical channel (radar eq + Beer–Lambert), AWGN receiver
-├── dsp/         # matched filter, detection, moving-average filter, safety model
-├── desktop/     # Pygame app: LiDARSystem, AutonomousVehicle, TargetVehicle, SimulationApp
-├── viz/         # Plotly / canvas visualizations (Streamlit + 3D)
-└── tests/       # numerical physics validation
-docs/            # web build (simulator.html) + model reference (physics.html)
-```
-
-## Model reference
-
-See [`docs/physics.html`](docs/physics.html) for every equation used across the signal chain
-and the decision logic.
+Pure client-side **HTML5 Canvas + JavaScript** (no dependencies) for the web build;
+**Python / NumPy / SciPy / Pygame** for the original engine.
