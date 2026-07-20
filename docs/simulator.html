@@ -227,7 +227,7 @@ function applyScenario(){const sc=SCEN[S.scenKey];S.fog=sc.fog;S.rho=sc.rho;
   document.getElementById("s-fog").value=sc.fog;document.getElementById("s-rho").value=sc.rho;updateLabels();renderScenMath();}
 function reset(){const sc=SCEN[S.scenKey];S.range=START_RANGE;S.ego=new Ego(S.speed);
   S.target=new Target(sc,curveVsafe());S.decision="CRUISE";S.committed=false;S.following=false;S.ma.reset();S.stopTimer=0;
-  S.roundPassed=false;}
+  S.roundAngle=Math.PI/2;S.leadAngle=Math.PI/2+0.6;}
 
 // ===== UPDATE (decision uses detailed D_required) =====
 function update(dt){S.t+=dt;const v=S.ego,VH=veh();
@@ -245,22 +245,18 @@ function update(dt){S.t+=dt;const v=S.ego,VH=veh();
   const closing=(v.speed-S.target.speed)/3.6;S.ttc=(closing>0.2&&S.detected)?S.range/closing:Infinity;
   runScan();
 
-  // ---- ROUNDABOUT (pseudo-3D perspective): approach -> curve around island -> exit ----
+  // ---- ROUNDABOUT: ego follows the circular lane around the central island ----
   if(S.target.type==="roundabout"){
     const vsafe=curveVsafe();
     v.cruise=vsafe;v.braking=false;v.merging=false;
     S.decision=(v.speed>vsafe+2)?"SLOWING":"ROUNDABOUT";
-    v.update(dt,VH);const ve=v.speed/3.6;
-    if(!S.roundPassed){
-      v.tx=(S.range<44)?0.95:0.0;                 // steer to curve around the island
-      S.range=Math.max(4,S.range-ve*dt);          // approach and pass the island
-      if(S.range<=6)S.roundPassed=true;           // now alongside/past the island
-    }else{
-      v.tx=0.0;                                   // straighten out and exit
-      S.range=Math.min(MAXV,S.range+(ve+3)*dt);   // island falls behind
-      if(S.range>=100)S.roundPassed=false;        // loop to the next roundabout approach
-    }
-    S.scroll=(S.scroll+ve*dt*9)%2000;
+    v.update(dt,VH);
+    const vms=v.speed/3.6,omega=vms/ROUND_R,lomega=(vsafe/3.6)/ROUND_R;
+    S.roundAngle+=omega*dt;S.leadAngle+=lomega*dt;      // circulate along the arc
+    let gap=((S.leadAngle-S.roundAngle)%(2*Math.PI)+2*Math.PI)%(2*Math.PI);
+    if(gap>Math.PI)gap-=2*Math.PI;
+    S.range=Math.max(5,Math.min(MAXV,Math.abs(gap)*ROUND_R+8));
+    S.scroll=(S.scroll+vms*dt*9)%2000;
     return;
   }
 
@@ -306,33 +302,44 @@ function drawRingBeam(x,y,heading){const L=Math.min(SW,SH)*0.32,col=S.detected?"
   sctx.lineTo(L*Math.cos(-FOV),L*Math.sin(-FOV));sctx.lineTo(L*Math.cos(FOV),L*Math.sin(FOV));sctx.closePath();sctx.fill();
   sctx.setLineDash([9,12]);sctx.lineDashOffset=-(S.t*90)%21;sctx.strokeStyle=`rgba(${col},.9)`;sctx.lineWidth=3;
   sctx.beginPath();sctx.moveTo(0,0);sctx.lineTo(L,0);sctx.stroke();sctx.setLineDash([]);sctx.restore();}
-function drawRoundScene(){const g=sctx,cx=SW/2,cy=SH*0.50,R=Math.min(SW,SH)*0.30,laneW=R*0.42,islR=R-laneW*0.55;
+function drawRoundScene(){const g=sctx,cx=SW/2,cy=SH*0.50,R=Math.min(SW,SH)*0.30,laneW=R*0.44,islR=R-laneW*0.55,ro=R+laneW/2,ri=R-laneW/2;
   g.clearRect(0,0,SW,SH);
-  g.fillStyle="#0b160f";g.fillRect(0,0,SW,SH);                       // grass field
-  // approach + exit roads (tangential stubs)
-  g.fillStyle="#141a24";
-  g.fillRect(cx-laneW*0.5,cy+R-laneW*0.5,laneW,SH-(cy+R)+laneW);     // bottom approach
-  g.fillRect(cx+R-laneW*0.5,cy-laneW*0.5,SW-(cx+R)+laneW,laneW);     // right exit
-  // ring asphalt band
-  g.lineWidth=laneW;g.strokeStyle="#161c26";g.beginPath();g.arc(cx,cy,R,0,7);g.stroke();
-  // ring edges (neon) + dashed centre lane
-  g.lineWidth=2;g.strokeStyle="rgba(0,224,255,.35)";
-  g.beginPath();g.arc(cx,cy,R+laneW/2,0,7);g.stroke();g.beginPath();g.arc(cx,cy,R-laneW/2,0,7);g.stroke();
-  g.setLineDash([12,12]);g.strokeStyle="rgba(235,238,242,.5)";g.beginPath();g.arc(cx,cy,R,0,7);g.stroke();g.setLineDash([]);
-  // central island: curb + grass + bushes
-  g.fillStyle="#4a515e";g.beginPath();g.arc(cx,cy,islR,0,7);g.fill();
-  g.fillStyle="#1e6437";g.beginPath();g.arc(cx,cy,islR-4,0,7);g.fill();
-  g.fillStyle="#268047";g.beginPath();g.arc(cx,cy-islR*0.15,islR*0.7,0,7);g.fill();
-  for(let i=0;i<5;i++){const a=i/5*7,bx=cx+Math.cos(a)*islR*0.5,by=cy+Math.sin(a)*islR*0.5;
-    g.fillStyle="#164a2a";g.beginPath();g.arc(bx,by,islR*0.14,0,7);g.fill();
-    g.fillStyle="#2e7d49";g.beginPath();g.arc(bx-2,by-2,islR*0.09,0,7);g.fill();}
+  // grass field with subtle texture
+  g.fillStyle="#0c1a11";g.fillRect(0,0,SW,SH);
+  g.fillStyle="#10241688";for(let i=0;i<40;i++){const gx=(i*97%SW),gy=((i*61)%SH);g.fillRect(gx,gy,3,3);}
+  // approach road (bottom) + exit road (right) as asphalt stubs
+  g.fillStyle="#171d27";
+  g.fillRect(cx-laneW*0.55,cy+ri,laneW*1.1,SH-(cy+ri));               // bottom approach
+  g.fillRect(cx+ri,cy-laneW*0.55,SW-(cx+ri),laneW*1.1);              // right exit
+  // approach dashed centre line
+  g.setLineDash([14,14]);g.strokeStyle="rgba(235,238,242,.45)";g.lineWidth=2;
+  g.beginPath();g.moveTo(cx,cy+ri);g.lineTo(cx,SH);g.stroke();
+  g.beginPath();g.moveTo(cx+ri,cy);g.lineTo(SW,cy);g.stroke();g.setLineDash([]);
+  // ring asphalt band (radial gradient for depth)
+  const rg=g.createRadialGradient(cx,cy,ri,cx,cy,ro);rg.addColorStop(0,"#1b222e");rg.addColorStop(1,"#12171f");
+  g.lineWidth=laneW;g.strokeStyle=rg;g.beginPath();g.arc(cx,cy,R,0,7);g.stroke();
+  // ring edge lines + dashed centre lane
+  g.lineWidth=2.5;g.strokeStyle="rgba(235,238,242,.55)";
+  g.beginPath();g.arc(cx,cy,ro-2,0,7);g.stroke();g.beginPath();g.arc(cx,cy,ri+2,0,7);g.stroke();
+  g.setLineDash([13,13]);g.strokeStyle="rgba(235,238,242,.4)";g.beginPath();g.arc(cx,cy,R,0,7);g.stroke();g.setLineDash([]);
+  // give-way triangles at the bottom entry
+  g.fillStyle="rgba(235,238,242,.6)";for(let i=-1;i<=1;i++){const tx=cx+i*laneW*0.28;
+    g.beginPath();g.moveTo(tx-3,cy+ri+6);g.lineTo(tx+3,cy+ri+6);g.lineTo(tx,cy+ri+13);g.closePath();g.fill();}
+  // central island: curb ring + grass mound + trees
+  g.fillStyle="#525a68";g.beginPath();g.arc(cx,cy,islR,0,7);g.fill();
+  g.fillStyle="#3a4150";g.beginPath();g.arc(cx,cy,islR-3,0,7);g.fill();
+  g.fillStyle="#1e6437";g.beginPath();g.arc(cx,cy,islR-6,0,7);g.fill();
+  g.fillStyle="#26804744";g.beginPath();g.arc(cx,cy-islR*0.18,islR*0.7,0,7);g.fill();
+  for(let i=0;i<6;i++){const a=i/6*7,bx=cx+Math.cos(a)*islR*0.48,by=cy+Math.sin(a)*islR*0.48;
+    g.fillStyle="rgba(0,0,0,.3)";g.beginPath();g.arc(bx+2,by+2,islR*0.15,0,7);g.fill();
+    g.fillStyle="#164a2a";g.beginPath();g.arc(bx,by,islR*0.15,0,7);g.fill();
+    g.fillStyle="#2e8b4c";g.beginPath();g.arc(bx-2,by-2,islR*0.1,0,7);g.fill();}
   // lead vehicle on the ring
   const lx=cx+Math.cos(S.leadAngle)*R,ly=cy+Math.sin(S.leadAngle)*R,lh=S.leadAngle+Math.PI/2;
   drawCarRot(lx,ly,lh,0.72,{w:44,h:74,body:S.detected?"#7a3038":"#39414d",cab:"#0b1420",trim:"#39d98a",kind:"sedan"},false,false);
-  // ego on the ring + rotating beam ahead
+  // ego on the ring + rotating LiDAR beam that follows heading
   const ex=cx+Math.cos(S.roundAngle)*R,ey=cy+Math.sin(S.roundAngle)*R,eh=S.roundAngle+Math.PI/2;
   drawRingBeam(ex,ey,eh);
-  // scan points on the lead vehicle
   if(S.detected){for(let i=-1;i<=1;i++){const px=lx+Math.cos(lh)*i*10,py=ly+Math.sin(lh)*i*10;
     g.fillStyle="#39d98a";g.shadowColor="#39d98a";g.shadowBlur=8;g.beginPath();g.arc(px,py,3.4,0,7);g.fill();g.shadowBlur=0;}}
   drawCarRot(ex,ey,eh,0.9,hostShape(),S.ego.braking&&S.ego.speed>0.1,true);
@@ -659,7 +666,8 @@ window.addEventListener("resize",()=>{fitScene();fitGraphs();});
 
 // ===== LOOP =====
 let last=0;function frame(ts){const dt=Math.min((ts-last)/1000||0.016,0.05);last=ts;update(dt);
-  drawScene();drawGraphs();drawDOM();
+  if(S.scenKey==="roundabout")drawRoundScene();else drawScene();
+  drawGraphs();drawDOM();
   if(S.specOpen){const w=document.getElementById("specWrap");if(w)w.innerHTML=specSheetInner();else S.specOpen=false;}
   requestAnimationFrame(frame);}
 updateScenBtn();applyScenario();reset();fitScene();fitGraphs();updateLabels();requestAnimationFrame(frame);
