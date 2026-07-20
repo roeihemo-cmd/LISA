@@ -344,7 +344,19 @@ function drawRoundScene(){const g=sctx,cx=SW/2,cy=SH*0.50,R=Math.min(SW,SH)*0.30
     g.fillStyle="#39d98a";g.shadowColor="#39d98a";g.shadowBlur=8;g.beginPath();g.arc(px,py,3.4,0,7);g.fill();g.shadowBlur=0;}}
   drawCarRot(ex,ey,eh,0.9,hostShape(),S.ego.braking&&S.ego.speed>0.1,true);
   S.roundEgo={x:ex,y:ey};
+  // "TOP VIEW" label
+  g.fillStyle="rgba(0,224,255,.9)";g.font="bold 13px Consolas,monospace";g.textAlign="center";
+  g.fillText("ROUNDABOUT — TOP VIEW",cx,26);g.textAlign="left";
+  // rotating steering-wheel indicator (shows the wheel turning as the car circles)
+  drawSteerWheel(64,SH-58,26,S.roundAngle*1.6);
   drawFog();drawHUD();}
+function drawSteerWheel(x,y,r,ang){const g=sctx;g.save();g.translate(x,y);
+  g.fillStyle="rgba(6,10,16,.8)";g.beginPath();g.arc(0,0,r+9,0,7);g.fill();
+  g.rotate(ang);
+  g.strokeStyle="#00e0ff";g.lineWidth=4;g.beginPath();g.arc(0,0,r,0,7);g.stroke();  // rim
+  g.lineWidth=3.4;for(let i=0;i<3;i++){const a=i*2*Math.PI/3;g.beginPath();g.moveTo(0,0);g.lineTo(Math.cos(a)*r,Math.sin(a)*r);g.stroke();}
+  g.fillStyle="#00e0ff";g.beginPath();g.arc(0,0,4,0,7);g.fill();g.restore();
+  g.fillStyle="rgba(125,135,152,.9)";g.font="10px Consolas,monospace";g.textAlign="center";g.fillText("STEERING",x,y+r+20);g.textAlign="left";}
 
 function drawScene(){sctx.clearRect(0,0,SW,SH);sctx.fillStyle="#070a10";sctx.fillRect(0,0,SW,SH);
   const cx=SW/2,hy=HZ(),ey=EY(),th=rHalf(hy),bh=rHalf(ey+40);
@@ -583,23 +595,24 @@ window.closeModal=()=>{S.specOpen=false;overlay.classList.remove("show");};
 overlay.addEventListener("click",e=>{if(e.target===overlay)closeModal();});
 function openEq(key){S.specOpen=false;const e=EQ[key];let dl="";for(const [t,d] of e.terms())dl+=`<div><dt>${t}</dt><dd class="rtl">${bidi(d)}</dd></div>`;
   openModal(`<h3>${e.title}</h3><div class="sub rtl">${bidi(e.sub)}</div><div class="eq">${e.full}</div><dl>${dl}</dl><div class="note rtl">${bidi(e.note)}</div>`);}
-function specRow(label,value,explain){return `<tr><td>${label}<div class="ex">${explain}</div></td><td>${value}</td></tr>`;}
+function specRow(label,value,explain){return `<tr><td>${label}<div class="ex rtl">${bidi(explain)}</div></td><td>${value}</td></tr>`;}
 function specSheetInner(){const VH=veh(),v=S.ego?S.ego.speed:S.speed,ve=v/3.6,lat=T_DSP+T_FILTER+VH.tAct,dReact=ve*lat,dMech=ve*ve/(2*VH.decel),dReq=dReact+dMech+BUFFER;
-  return `<h3>${VH.name} — Spec Sheet</h3><div class="sub">Live values at the current speed (${v.toFixed(0)} km/h). They update as the car accelerates or brakes.</div>
+  const actHe=VH.act==="pneumatic"?"פנאומטית":"הידראולית";
+  return `<h3>${VH.name} — Spec Sheet</h3><div class="sub rtl">${bidi(`ערכים חיים לפי המהירות הנוכחית ${v.toFixed(0)} km/h. הם מתעדכנים כשהרכב מאיץ או בולם.`)}</div>
     <div class="spec"><table>
-    ${specRow("Current speed",`${v.toFixed(0)} km/h`,"how fast the host car is going right now.")}
-    ${specRow("Friction μ",`${VH.mu}`,"tyre-road grip — higher means shorter braking and faster cornering.")}
-    ${specRow("Max acceleration",`${VH.aMax.toFixed(1)} m/s²`,"how hard this vehicle can speed up.")}
-    ${specRow("Max deceleration",`${VH.decel.toFixed(2)} m/s²`,"hardest possible braking, equal to μ × g.")}
-    ${specRow("Actuator delay",`${VH.tAct.toFixed(2)} s`,`${VH.act} brake lag — time from command to the pads gripping.`)}
-    ${specRow("Total latency",`${lat.toFixed(2)} s`,"sensor + filter + actuator delay combined.")}
-    ${specRow("Blind distance",`${dReact.toFixed(1)} m`,"metres travelled at full speed during that latency, before braking begins.")}
-    ${specRow("Mechanical braking",`${dMech.toFixed(1)} m`,"metres to stop once the brakes are applied, equal to V²/(2μg).")}
-    ${specRow("Safety buffer","5 m","fixed gap kept behind the target.")}
-    ${specRow("<b>D_required</b>",`<b>${dReq.toFixed(1)} m</b>`,"total safe stopping distance: blind + mechanical + buffer.")}
-    ${specRow("Roundabout speed",`${curveVsafe().toFixed(0)} km/h`,"max cornering speed for this grip, equal to √(μ·g·r).")}
+    ${specRow("Current speed",`${v.toFixed(0)} km/h`,"מהירות הנסיעה הנוכחית של הרכב המארח.")}
+    ${specRow("Friction μ",`${VH.mu}`,"מקדם אחיזת צמיג-כביש — ערך גבוה פירושו מרחק בלימה קצר ופנייה מהירה יותר.")}
+    ${specRow("Max acceleration",`${VH.aMax.toFixed(1)} m/s²`,"התאוצה המרבית שהרכב מסוגל להפיק.")}
+    ${specRow("Max deceleration",`${VH.decel.toFixed(2)} m/s²`,"תאוצת הבלימה המרבית, שווה ל-μ × g.")}
+    ${specRow("Actuator delay",`${VH.tAct.toFixed(2)} s`,`השהיית בלמים ${actHe} — הזמן מפקודת המחשב ועד לתפיסת הבלם.`)}
+    ${specRow("Total latency",`${lat.toFixed(2)} s`,"השהייה כוללת של המערכת: חיישן + מסנן + מנגנון מכני.")}
+    ${specRow("Blind distance",`${dReact.toFixed(1)} m`,"מרחק עיוור שהרכב גומע במהירות מלאה בזמן ההשהייה, לפני תחילת ההאטה.")}
+    ${specRow("Mechanical braking",`${dMech.toFixed(1)} m`,"מרחק עצירה מכני נטו מרגע הפעלת הבלמים, שווה ל-V²/(2μg).")}
+    ${specRow("Safety buffer","5 m","מרווח ביטחון קבוע שנשמר מאחורי המטרה, כ-3–5 מטרים.")}
+    ${specRow("<b>D_required</b>",`<b>${dReq.toFixed(1)} m</b>`,"מרחק עצירה בטוח כולל: מרחק עיוור + מרחק מכני + מרווח ביטחון.")}
+    ${specRow("Roundabout speed",`${curveVsafe().toFixed(0)} km/h`,"המהירות המרבית לפנייה בכיכר לפי האחיזה, שווה ל-√(μ·g·r).")}
     </table></div>
-    <div class="note">Tip: double-click the car to double its speed (×2), then watch D_required grow with the square of speed.</div>`;}
+    <div class="note rtl">${bidi("טיפ: לחיצה כפולה על הרכב מכפילה את המהירות ×2 — ואפשר לראות איך D_required גדל בריבוע המהירות.")}</div>`;}
 function openSpec(){S.specOpen=true;openModal(`<div id="specWrap">${specSheetInner()}</div>`);}
 
 // ===== SCENARIO PICKER (window with preview screenshots) =====
