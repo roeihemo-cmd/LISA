@@ -62,6 +62,12 @@
   .eqcard .f{font-family:var(--mono);font-size:.8rem;color:var(--cyan);background:#0b1119;border-left:2px solid var(--cyan);
     border-radius:5px;padding:6px 8px;overflow-x:auto}
   .eqcard .d{font-size:.72rem;color:var(--dim);line-height:1.4}
+  @keyframes dangerFlash{0%,100%{box-shadow:0 0 0 1px #ff2532,0 0 14px rgba(255,37,50,.4)}50%{box-shadow:0 0 0 1px #ff2532,0 0 26px rgba(255,37,50,.85)}}
+  .warnbox{border:1px solid #ff2532;border-radius:10px;padding:11px 13px;background:#1a0608;
+    animation:dangerFlash 1s infinite;display:flex;flex-direction:column;gap:6px}
+  .warnbox .t{font-family:var(--mono);font-weight:700;font-size:.82rem;color:#ff5560;letter-spacing:.03em}
+  .warnbox .d{font-size:.76rem;color:#ffb3b8;line-height:1.5}
+  .decbox.danger{animation:dangerFlash .8s infinite}
   .infobtn{cursor:pointer;color:#0b1017;background:var(--cyan);border-radius:50%;width:16px;height:16px;
     font-size:.66rem;font-weight:700;display:inline-flex;align-items:center;justify-content:center;border:none}
   /* modal */
@@ -130,6 +136,7 @@
       <div class="m"><span class="k">SNR</span><span class="v" id="m-snr">—</span></div>
       <div class="m"><span class="k">P_rec</span><span class="v" id="m-prec">—</span></div>
     </div>
+    <div id="warnbox" class="warnbox" style="display:none"></div>
     <canvas id="graphs" height="300"></canvas>
     <h2 id="scenmath-title">Scenario Math</h2>
     <div id="scenmath" style="display:flex;flex-direction:column;gap:8px"></div>
@@ -223,14 +230,15 @@ const S={speed:90,fog:0.02,rho:0.6,noise:0.15,vehKey:"tesla",scenKey:"cutin",
   ego:null,target:null,range:START_RANGE,scroll:0,t:0,decision:"CRUISE",committed:false,
   following:false,ma:new MA(MA_WIN),detected:false,raw:null,sm:null,dMech:0,dReq:0,snr:0,
   speedDiff:0,ttc:Infinity,prec:0,scan:[],last:null,blinded:false,stopTimer:0,specOpen:false,
-  roundAngle:Math.PI/2,leadAngle:Math.PI/2+0.55,roundEgo:null,roundEntry:0,prevEgoX:0,steerAng:0};
+  inevitable:false,dMinStop:0,
+  roundAngle:Math.PI/2,leadAngle:Math.PI/2+0.55,roundEgo:null,roundEntry:0,roundPhase:"entry",exitProg:0,prevEgoX:0,steerAng:0};
 function veh(){return VEHICLES[S.vehKey];}
 function curveVsafe(){return Math.sqrt(veh().mu*G*ROUND_R)*3.6;}
 function applyScenario(){const sc=SCEN[S.scenKey];S.fog=sc.fog;S.rho=sc.rho;
   document.getElementById("s-fog").value=sc.fog;document.getElementById("s-rho").value=sc.rho;updateLabels();renderScenMath();}
 function reset(){const sc=SCEN[S.scenKey];S.range=START_RANGE;S.ego=new Ego(S.speed);
   S.target=new Target(sc,curveVsafe());S.decision="CRUISE";S.committed=false;S.following=false;S.ma.reset();S.stopTimer=0;
-  S.roundAngle=Math.PI/2;S.leadAngle=Math.PI/2+0.6;S.roundEntry=0;}
+  S.roundAngle=Math.PI/2;S.leadAngle=Math.PI/2+0.6;S.roundEntry=0;S.roundPhase="entry";S.exitProg=0;}
 
 // ===== UPDATE (decision uses detailed D_required) =====
 function update(dt){S.t+=dt;const v=S.ego,VH=veh();
@@ -246,20 +254,28 @@ function update(dt){S.t+=dt;const v=S.ego,VH=veh();
   const ve=v.speed/3.6,latency=T_DSP+T_FILTER+VH.tAct,dReact=ve*latency,dMech=ve*ve/(2*VH.decel),dReq=dReact+dMech+BUFFER;
   S.dMech=dMech;S.dReq=dReq;S.speedDiff=v.speed-S.target.speed;
   const closing=(v.speed-S.target.speed)/3.6;S.ttc=(closing>0.2&&S.detected)?S.range/closing:Infinity;
+  // physical minimum stopping distance: mechanical + blind. If the gap is already
+  // smaller AND TTC is critical, no amount of braking can stop in time.
+  const dMinStop=ve*ve/(2*VH.decel)+ve*(T_DSP+T_FILTER+VH.tAct);S.dMinStop=dMinStop;
+  S.inevitable=det.detected&&inLane&&!v.avoided&&sm!=null&&sm<dMinStop&&isFinite(S.ttc)&&S.ttc<1.0;
   runScan();
 
   // ---- ROUNDABOUT: ego follows the circular lane around the central island ----
   if(S.target.type==="roundabout"){
-    const vsafe=curveVsafe();
+    const vsafe=curveVsafe();S.inevitable=false;
     v.cruise=vsafe;v.braking=false;v.merging=false;
     S.decision=(v.speed>vsafe+2)?"SLOWING":"ROUNDABOUT";
-    v.update(dt,VH);S.roundEntry+=dt;
-    const vms=v.speed/3.6,lomega=(vsafe/3.6)/ROUND_R;
+    v.update(dt,VH);
+    const vms=v.speed/3.6,omega=vms/ROUND_R,lomega=(vsafe/3.6)/ROUND_R;
     S.leadAngle+=lomega*dt;
-    if(S.roundEntry>=1.6){const omega=vms/ROUND_R;S.roundAngle+=omega*dt;}  // circulate after the entry
+    // 3-phase drive-through: Entry -> Curved Driving (~270deg) -> Exit -> next approach
+    if(S.roundPhase==="entry"){S.roundEntry+=dt;if(S.roundEntry>=1.6){S.roundPhase="loop";S.roundAngle=Math.PI/2;}}
+    else if(S.roundPhase==="loop"){S.roundAngle+=omega*dt;
+      if(S.roundAngle>=Math.PI/2+1.5*Math.PI){S.roundPhase="exit";S.exitProg=0;}}
+    else{S.exitProg+=(0.35+vms*0.03)*dt;if(S.exitProg>=1)reset();}   // drive out, then loop to next
     let gap=((S.leadAngle-S.roundAngle)%(2*Math.PI)+2*Math.PI)%(2*Math.PI);
     if(gap>Math.PI)gap-=2*Math.PI;
-    S.range=Math.max(5,Math.min(MAXV,Math.abs(gap)*ROUND_R+8));
+    S.range=(S.roundPhase==="loop")?Math.max(5,Math.min(MAXV,Math.abs(gap)*ROUND_R+8)):50;
     S.scroll=(S.scroll+vms*dt*9)%2000;
     return;
   }
@@ -344,15 +360,16 @@ function drawRoundScene(){const g=sctx,cx=SW/2,cy=SH*0.50,R=Math.min(SW,SH)*0.30
   // lead vehicle on the ring
   const lx=cx+Math.cos(S.leadAngle)*R,ly=cy+Math.sin(S.leadAngle)*R,lh=S.leadAngle+Math.PI/2;
   drawCarRot(lx,ly,lh,0.72,{w:44,h:74,body:S.detected?"#7a3038":"#39414d",cab:"#0b1420",trim:"#39d98a",kind:"sedan"},false,false);
-  // ego: smooth entry from the approach road onto the ring, then tangential circulation
+  // ego position by phase: Entry (approach->ring) / Loop (on arc) / Exit (drive out right)
   const lerp=(a,b,t)=>a+(b-a)*t;
   const lerpAng=(a,b,t)=>{let d=((b-a+Math.PI)%(2*Math.PI))-Math.PI;if(d<-Math.PI)d+=2*Math.PI;return a+d*t;};
-  const ringTan=S.roundAngle+Math.PI/2;                 // tangent heading on the ring
+  const ringTan=S.roundAngle+Math.PI/2;
   let ex,ey,eh;
-  if(S.roundEntry<1.6){const p=S.roundEntry/1.6,pe=p*p*(3-2*p);   // smoothstep
-    ex=cx;ey=lerp(SH-30,cy+R,pe);                       // slide up the approach road to the ring
-    eh=lerpAng(-Math.PI/2,ringTan,pe);                  // rotate up-heading into the tangent
-  }else{ex=cx+Math.cos(S.roundAngle)*R;ey=cy+Math.sin(S.roundAngle)*R;eh=ringTan;}
+  if(S.roundPhase==="entry"){const p=Math.min(1,S.roundEntry/1.6),pe=p*p*(3-2*p);
+    ex=cx;ey=lerp(SH-30,cy+R,pe);eh=lerpAng(-Math.PI/2,Math.PI,pe);}     // slide up, rotate into tangent
+  else if(S.roundPhase==="loop"){ex=cx+Math.cos(S.roundAngle)*R;ey=cy+Math.sin(S.roundAngle)*R;eh=ringTan;}
+  else{const p=Math.min(1,S.exitProg),pe=p*p*(3-2*p);                    // exit rightwards along exit road
+    ex=lerp(cx+R,SW+40,pe);ey=cy;eh=lerpAng(Math.PI/2,0,pe);}
   drawRingBeam(ex,ey,eh);
   if(S.detected){for(let i=-1;i<=1;i++){const px=lx+Math.cos(lh)*i*10,py=ly+Math.sin(lh)*i*10;
     g.fillStyle="#39d98a";g.shadowColor="#39d98a";g.shadowBlur=8;g.beginPath();g.arc(px,py,3.4,0,7);g.fill();g.shadowBlur=0;}}
@@ -519,6 +536,17 @@ function drawHUD(){sctx.font="bold 17px Consolas,monospace";sctx.textAlign="left
   // Forward Collision Warning: detected + short TTC, before AEB/merge engages
   else if(S.detected&&isFinite(S.ttc)&&S.ttc<2.5&&S.decision!=="AEB"&&!S.ego.merging&&Math.sin(S.t*12)>-0.3){
     sctx.fillStyle="#ffb020";sctx.fillText("⚠ FCW — FORWARD COLLISION WARNING",16,80);}
+  // --- highest priority: unavoidable collision (physical limit exceeded) ---
+  if(S.inevitable){const a=0.45+0.55*Math.abs(Math.sin(S.t*7));const av=SW-40;sctx.textAlign="center";
+    let fs=23;sctx.font="bold "+fs+"px system-ui,sans-serif";let w=sctx.measureText("⛔ UNAVOIDABLE COLLISION — PHYSICAL LIMIT EXCEEDED").width;
+    if(w>av){fs=Math.floor(fs*av/w);}
+    sctx.fillStyle="rgba(30,0,0,.72)";sctx.fillRect(0,SH/2-fs-8,SW,fs*2+34);
+    sctx.globalAlpha=a;sctx.fillStyle="#ff2532";sctx.shadowColor="#ff2532";sctx.shadowBlur=24;
+    sctx.font="bold "+fs+"px system-ui,sans-serif";sctx.fillText("⛔ UNAVOIDABLE COLLISION — PHYSICAL LIMIT EXCEEDED",SW/2,SH/2);
+    sctx.shadowBlur=0;sctx.globalAlpha=1;
+    sctx.fillStyle="#ffb3b8";sctx.font="14px system-ui,sans-serif";
+    sctx.fillText("התנגשות בלתי נמנעת — חריגה ממגבלת הבלימה הפיזיקלית",SW/2,SH/2+fs*0.95);
+    sctx.textAlign="left";return;}
   let msg=null,col="#ff4d6d";
   if(S.blinded){msg="SENSOR BLINDED — DISENGAGING AUTOPILOT";col="#ffb020";}
   else if(S.decision==="AEB"&&S.ego.braking){msg="EMERGENCY BRAKING ENGAGED";col="#ff4d6d";}
@@ -551,11 +579,20 @@ function drawDOM(){$("m-true").textContent=S.range.toFixed(1)+" m";$("m-sm").tex
   $("m-snr").textContent=(S.snr>0?(20*Math.log10(S.snr)).toFixed(0):"-∞")+" dB";$("m-prec").textContent=S.prec>0?S.prec.toExponential(1):"0";
   $("tgt-label").textContent=S.target.baseLabel;$("closing").textContent="closing Δv: "+(S.speedDiff>=0?"+":"")+S.speedDiff.toFixed(0)+" km/h";
   $("closing").style.color=S.speedDiff>DV_THR?"var(--red)":"var(--green)";
-  const dec=$("dec"),c={CRUISE:"--cyan",AEB:"--red","LANE MERGE":"--green",FOLLOW:"--amber",
-    SLOWING:"--amber",ROUNDABOUT:"--amber"}[S.decision]||"--cyan";
-  const DECLABEL={CRUISE:"Cruise","LANE MERGE":"Lane Merge",AEB:"AEB Active",
-    FOLLOW:"Adaptive Cruise",SLOWING:"Traffic Roundabout",ROUNDABOUT:"Traffic Roundabout"};
-  dec.textContent=DECLABEL[S.decision]||S.decision;dec.style.color=`var(${c})`;dec.style.borderColor=`var(${c})`;}
+  const dec=$("dec");
+  if(S.inevitable){dec.textContent="COLLISION INEVITABLE";dec.style.color="#ff2532";dec.style.borderColor="#ff2532";dec.classList.add("danger");}
+  else{dec.classList.remove("danger");
+    const c={CRUISE:"--cyan",AEB:"--red","LANE MERGE":"--green",FOLLOW:"--amber",
+      SLOWING:"--amber",ROUNDABOUT:"--amber"}[S.decision]||"--cyan";
+    const DECLABEL={CRUISE:"Cruise","LANE MERGE":"Lane Merge",AEB:"AEB Active",
+      FOLLOW:"Adaptive Cruise",SLOWING:"Traffic Roundabout",ROUNDABOUT:"Traffic Roundabout"};
+    dec.textContent=DECLABEL[S.decision]||S.decision;dec.style.color=`var(${c})`;dec.style.borderColor=`var(${c})`;}
+  // unavoidable-collision explanation panel
+  const wb=$("warnbox");
+  if(S.inevitable){wb.style.display="flex";
+    wb.innerHTML=`<div class="t">⛔ UNAVOIDABLE COLLISION</div><div class="d rtl">${bidi(
+      `מרחק הבלימה הפיזיקלי הנדרש (${S.dMinStop.toFixed(0)} מטרים) גדול מהמרחק הקיים (${(S.sm||S.range).toFixed(0)} מטרים). במידה וההגה אינו מסיט את הרכב, התנגשות היא בלתי נמנעת גם תחת בלימת חירום מרבית.`)}</div>`;}
+  else wb.style.display="none";}
 
 // ===== EQUATION REGISTRY (per-term explanations) =====
 const EQ={
@@ -675,7 +712,10 @@ $("s-speed").addEventListener("input",e=>{S.speed=+e.target.value;updateLabels()
 $("s-fog").addEventListener("input",e=>{S.fog=+e.target.value;updateLabels();});
 $("s-rho").addEventListener("input",e=>{S.rho=+e.target.value;updateLabels();});
 $("s-noise").addEventListener("input",e=>{S.noise=+e.target.value;updateLabels();});
-$("vehicle").addEventListener("change",e=>{S.vehKey=e.target.value;renderScenMath();});
+$("vehicle").addEventListener("change",e=>{S.vehKey=e.target.value;
+  const sp=$("s-speed"),max=S.vehKey==="truck"?90:160;sp.max=max;          // realistic truck top speed
+  if(S.speed>max){S.speed=max;sp.value=max;if(S.ego)S.ego.cruise=max;}
+  updateLabels();renderScenMath();});
 window.addEventListener("keydown",e=>{if(e.code==="Space"){e.preventDefault();reset();}});
 function hitEgo(mx,my){const b=egoBox();return mx>=b.x&&mx<=b.x+b.w&&my>=b.y&&my<=b.y+b.h;}
 let clickTimer=null;
