@@ -163,9 +163,9 @@ const SCEN={
   pedestrian:{type:"ped",beh:"cross",fog:0.03,rho:0.1,v0:0,lat0:-1.7,label:"PEDESTRIAN",
     name:"Pedestrian",desc:"pedestrian crossing",icon:"ped",eqs:["lidar","braking"],
     challenge:"A pedestrian crosses in a straight line. Low reflectivity (ρ=0.1) means a weak echo and low SNR — hard to detect."},
-  child:{type:"child",beh:"chase",fog:0.02,rho:0.12,v0:0,lat0:-1.7,label:"CHILD CHASING BALL",
-    name:"Child + Ball",desc:"child runs to road",icon:"child",eqs:["lidar","ttc","braking"],
-    challenge:"A small child (low RCS) runs after a ball into the road, then stops. Weak echo and a very short TTC."},
+  child:{type:"child",beh:"cross",fog:0.02,rho:0.12,v0:0,lat0:-1.8,label:"CHILD CHASING BALL",
+    name:"Child + Ball",desc:"child crosses road",icon:"child",eqs:["lidar","ttc","braking"],
+    challenge:"A small child (low RCS) crosses the road in a straight line, a ball rolling ahead. Very short TTC — the car must brake hard or steer around."},
   fog:{type:"car",beh:"slow",fog:0.22,rho:0.6,v0:40,lat0:0,label:"LEAD IN HEAVY FOG",
     name:"Heavy Fog",desc:"low visibility",icon:"fog",eqs:["beer","lidar","braking"],
     challenge:"Heavy fog attenuates the laser beam (Beer-Lambert) — the target is only detected at very short range."},
@@ -208,12 +208,11 @@ class Target{constructor(s,vsafe){this.type=s.type;this.beh=s.beh;this.speed=s.b
   update(dt){this.timer+=dt;
     if(this.beh==="brake"&&this.timer>=3){this.braking=true;this.speed=Math.max(0,this.speed-LEAD_HARD_DECEL*dt);}
     else if(this.beh==="cutin"){this.lat+=(0-this.lat)*Math.min(1,0.4*dt);if(this.timer>2)this.lat=Math.max(0,this.lat-0.35*dt);}
-    else if(this.beh==="cross"){                 // straight-line crossing, one clean direction
-      this.lat+=this.dir*0.9*dt;if(this.lat>1.8){this.lat=1.8;this.dir=-1;}if(this.lat<-1.8){this.lat=-1.8;this.dir=1;}}
-    else if(this.beh==="chase"){                 // child runs into the road once, then stays put
-      const settle=-0.25;                        // final spot inside our lane
-      if(this.timer<1.1)this.lat+=(settle-this.lat)*Math.min(1,2.4*dt);else this.lat=settle;
-      this.ballLat=this.lat+0.55;}}              // ball just ahead of the child
+    else if(this.beh==="cross"){                 // straight perpendicular crossing
+      const spd=this.type==="child"?1.1:0.85;    // child runs a bit faster
+      this.lat+=this.dir*spd*dt;
+      if(this.lat>1.9){this.lat=1.9;this.dir=-1;}if(this.lat<-1.9){this.lat=-1.9;this.dir=1;}
+      this.ballLat=this.lat+this.dir*0.65;}}      // ball rolls ahead in the crossing direction
   inLane(){return Math.abs(this.lat)<0.6;}}
 
 // ===== STATE =====
@@ -221,14 +220,14 @@ const S={speed:90,fog:0.02,rho:0.6,noise:0.15,vehKey:"tesla",scenKey:"cutin",
   ego:null,target:null,range:START_RANGE,scroll:0,t:0,decision:"CRUISE",committed:false,
   following:false,ma:new MA(MA_WIN),detected:false,raw:null,sm:null,dMech:0,dReq:0,snr:0,
   speedDiff:0,ttc:Infinity,prec:0,scan:[],last:null,blinded:false,stopTimer:0,specOpen:false,
-  roundAngle:Math.PI/2,leadAngle:Math.PI/2+0.55,roundEgo:null};
+  roundAngle:Math.PI/2,leadAngle:Math.PI/2+0.55,roundEgo:null,roundPassed:false,prevEgoX:0,steerAng:0};
 function veh(){return VEHICLES[S.vehKey];}
 function curveVsafe(){return Math.sqrt(veh().mu*G*ROUND_R)*3.6;}
 function applyScenario(){const sc=SCEN[S.scenKey];S.fog=sc.fog;S.rho=sc.rho;
   document.getElementById("s-fog").value=sc.fog;document.getElementById("s-rho").value=sc.rho;updateLabels();renderScenMath();}
 function reset(){const sc=SCEN[S.scenKey];S.range=START_RANGE;S.ego=new Ego(S.speed);
   S.target=new Target(sc,curveVsafe());S.decision="CRUISE";S.committed=false;S.following=false;S.ma.reset();S.stopTimer=0;
-  S.roundAngle=Math.PI/2;S.leadAngle=Math.PI/2+0.55;if(sc.type==="roundabout")S.range=0.55*ROUND_R+8;}
+  S.roundPassed=false;}
 
 // ===== UPDATE (decision uses detailed D_required) =====
 function update(dt){S.t+=dt;const v=S.ego,VH=veh();
@@ -236,7 +235,9 @@ function update(dt){S.t+=dt;const v=S.ego,VH=veh();
   const det=LiDAR.detect(S.range,1.0,S.rho,S.fog,S.noise);
   S.last=LiDAR.traces(S.range,1.0,S.rho,S.fog,S.noise);
   S.detected=det.detected;S.snr=S.last.snr;S.prec=det.amp;
-  const inLane=S.target.inLane()||S.target.type==="roundabout";
+  // a crossing pedestrian/child is a hazard anywhere across the roadway width
+  const inLane=(S.target.type==="ped"||S.target.type==="child")?Math.abs(S.target.lat)<1.3
+    :(S.target.inLane()||S.target.type==="roundabout");
   const raw=(det.detected&&inLane)?det.meas:null;S.raw=raw;
   const sm=raw!=null?S.ma.push(raw):(S.ma.reset(),null);S.sm=sm;S.blinded=!det.detected;
   const ve=v.speed/3.6,latency=T_DSP+T_FILTER+VH.tAct,dReact=ve*latency,dMech=ve*ve/(2*VH.decel),dReq=dReact+dMech+BUFFER;
@@ -244,24 +245,32 @@ function update(dt){S.t+=dt;const v=S.ego,VH=veh();
   const closing=(v.speed-S.target.speed)/3.6;S.ttc=(closing>0.2&&S.detected)?S.range/closing:Infinity;
   runScan();
 
-  // ---- ROUNDABOUT: car circulates along the curved lane at safe speed ----
+  // ---- ROUNDABOUT (pseudo-3D perspective): approach -> curve around island -> exit ----
   if(S.target.type==="roundabout"){
     const vsafe=curveVsafe();
     v.cruise=vsafe;v.braking=false;v.merging=false;
     S.decision=(v.speed>vsafe+2)?"SLOWING":"ROUNDABOUT";
-    v.update(dt,VH);
-    const vms=v.speed/3.6,omega=vms/ROUND_R,lomega=(vsafe/3.6)/ROUND_R;
-    S.roundAngle+=omega*dt;S.leadAngle+=lomega*dt;   // both circulate
-    let gap=((S.leadAngle-S.roundAngle)%(2*Math.PI)+2*Math.PI)%(2*Math.PI);
-    if(gap>Math.PI)gap-=2*Math.PI;                    // shortest signed arc gap
-    S.range=Math.max(5,Math.min(MAXV,Math.abs(gap)*ROUND_R+8));
-    S.scroll=(S.scroll+vms*dt*9)%2000;
+    v.update(dt,VH);const ve=v.speed/3.6;
+    if(!S.roundPassed){
+      v.tx=(S.range<44)?0.95:0.0;                 // steer to curve around the island
+      S.range=Math.max(4,S.range-ve*dt);          // approach and pass the island
+      if(S.range<=6)S.roundPassed=true;           // now alongside/past the island
+    }else{
+      v.tx=0.0;                                   // straighten out and exit
+      S.range=Math.min(MAXV,S.range+(ve+3)*dt);   // island falls behind
+      if(S.range>=100)S.roundPassed=false;        // loop to the next roundabout approach
+    }
+    S.scroll=(S.scroll+ve*dt*9)%2000;
     return;
   }
 
+  const pedlike=(S.target.type==="ped"||S.target.type==="child");
   const dSensor=sm,threat=det.detected&&inLane&&dSensor!=null&&dSensor<dReq&&!v.avoided;
   if(threat&&!S.committed){
-    if(dSensor>=dMech+BUFFER&&S.speedDiff>DV_THR){S.decision="AEB";v.braking=true;v.brakeTarget=Math.max(0,S.target.speed);}
+    if(pedlike){
+      if(S.ttc<=1.2||v.speed>55){S.decision="AEB";v.braking=true;v.brakeTarget=0;}   // short TTC / high speed -> full stop
+      else{S.decision="LANE MERGE";if(!v.merging){v.merging=true;v.tx=1;}}            // slow enough -> steer around
+    }else if(dSensor>=dMech+BUFFER&&S.speedDiff>DV_THR){S.decision="AEB";v.braking=true;v.brakeTarget=Math.max(0,S.target.speed);}
     else{S.decision="LANE MERGE";if(!v.merging){v.merging=true;v.tx=1;}}S.committed=true;
   }else if(!threat&&!S.committed)S.decision="CRUISE";
   if(v.braking)v.brakeTarget=Math.max(0,S.target.speed);
@@ -340,7 +349,7 @@ function drawScene(){sctx.clearRect(0,0,SW,SH);sctx.fillStyle="#070a10";sctx.fil
 
 function drawTarget(){const yF=r2y(S.range),sc=0.25+0.9*(yF-HZ())/(EY()-HZ()),sx=wX(S.target.lat,yF);
   if(S.target.type==="ped")drawPed(sx,yF,sc,S.target.dir,false,true);
-  else if(S.target.type==="child"){drawBall(wX(S.target.ballLat,yF),yF+6*sc,sc);drawPed(sx,yF,sc,S.target.dir,true,S.target.timer<1.1);}
+  else if(S.target.type==="child"){drawBall(wX(S.target.ballLat,yF),yF+6*sc,sc);drawPed(sx,yF,sc,S.target.dir,true,true);}
   else if(S.target.type==="obstacle")drawObstacle(sx,yF,sc);
   else if(S.target.type==="roundabout")drawRound(sx,yF,sc);
   else drawVehicle(sx,yF,sc,{w:46,h:80,body:S.detected?"#7a3038":"#39414d",cab:"#0b1420",trim:"#39d98a",kind:"sedan"},S.target.braking,false);
@@ -354,16 +363,34 @@ function drawVehicle(x,y,sc,shp,brake,isHost){const w=shp.w*sc,h=shp.h*sc;
   for(const wy of wys)for(const wx of[x-w/2-2*sc,x+w/2-2*sc]){rr(wx,wy-6*sc,4*sc,12*sc,2*sc);sctx.fill();}
   const grad=sctx.createLinearGradient(x-w/2,0,x+w/2,0);grad.addColorStop(0,shade(shp.body,-30));grad.addColorStop(.5,shp.body);grad.addColorStop(1,shade(shp.body,-30));
   if(shp.kind==="truck"){
-    sctx.fillStyle=shade("#8b929c",-6);rr(x-w/2,y-h*0.06,w,h*0.62,6*sc);sctx.fill(); // trailer
+    // long trailer with ribs
+    sctx.fillStyle=shade("#8b929c",-6);rr(x-w/2,y-h*0.06,w,h*0.62,6*sc);sctx.fill();
     sctx.strokeStyle="rgba(255,255,255,.14)";sctx.lineWidth=1.4;for(let i=1;i<4;i++){sctx.beginPath();sctx.moveTo(x-w/2,y-h*0.06+i*h*0.155);sctx.lineTo(x+w/2,y-h*0.06+i*h*0.155);sctx.stroke();}
-    sctx.fillStyle=grad;rr(x-w/2,y-h/2,w,h*0.30,8*sc);sctx.fill(); // cab
+    // gap between trailer and cab
+    sctx.fillStyle="#0a0d12";rr(x-w/2+3*sc,y-h*0.10,w-6*sc,h*0.05,2*sc);sctx.fill();
+    // prominent cab
+    sctx.fillStyle=grad;rr(x-w/2,y-h/2,w,h*0.30,8*sc);sctx.fill();
     sctx.fillStyle=shp.cab;rr(x-w/2+5*sc,y-h/2+5*sc,w-10*sc,h*0.15,5*sc);sctx.fill();
-  }else{
-    sctx.fillStyle=grad;rr(x-w/2,y-h/2,w,h,shp.kind==="sedan"?13*sc:8*sc);sctx.fill();
-    sctx.fillStyle=shp.cab;rr(x-w/2+6*sc,y-h*(shp.kind==="sedan"?0.33:0.28),w-12*sc,h*0.30,6*sc);sctx.fill();
-    rr(x-w/2+6*sc,y+h*0.05,w-12*sc,h*0.20,6*sc);sctx.fill();
-    // roofline highlight for sedan
-    if(shp.kind==="sedan"){sctx.strokeStyle="rgba(255,255,255,.12)";sctx.lineWidth=2;sctx.beginPath();sctx.moveTo(x-w/2+8*sc,y);sctx.lineTo(x+w/2-8*sc,y);sctx.stroke();}
+    // amber warning beacons on the cab roof (flashing)
+    const beac=Math.sin(S.t*8)>0;for(const bx of[-w/2+8*sc,w/2-8*sc]){sctx.fillStyle=beac?"#ffb020":"#5a4400";
+      if(beac){sctx.shadowColor="#ffb020";sctx.shadowBlur=12*sc;}sctx.beginPath();sctx.arc(x+bx,y-h/2+2*sc,2.6*sc,0,7);sctx.fill();sctx.shadowBlur=0;}
+    // amber side markers along trailer
+    sctx.fillStyle="#c88a1a";for(let i=0;i<3;i++){sctx.beginPath();sctx.arc(x-w/2+2*sc,y+i*h*0.18,1.6*sc,0,7);sctx.fill();sctx.beginPath();sctx.arc(x+w/2-2*sc,y+i*h*0.18,1.6*sc,0,7);sctx.fill();}
+  }else if(shp.kind==="sedan"){        // Tesla: low, sporty, panoramic glass roof, LED bar
+    sctx.fillStyle=grad;rr(x-w/2,y-h/2,w,h,15*sc);sctx.fill();
+    // large dark panoramic glass roof spanning most of the cabin
+    const gr=sctx.createLinearGradient(0,y-h*0.34,0,y+h*0.24);gr.addColorStop(0,"#0a1622");gr.addColorStop(.5,"#16283a");gr.addColorStop(1,"#0a1622");
+    sctx.fillStyle=gr;rr(x-w/2+5*sc,y-h*0.34,w-10*sc,h*0.58,7*sc);sctx.fill();
+    // sharp LED headlight bar (front)
+    sctx.fillStyle="#dff1ff";sctx.shadowColor="#8fd3ff";sctx.shadowBlur=6*sc;rr(x-w/2+8*sc,y-h/2+2*sc,w-16*sc,2*sc,1*sc);sctx.fill();sctx.shadowBlur=0;
+    // full-width tail light bar (rear)
+    sctx.fillStyle="#7a1420";rr(x-w/2+8*sc,y+h/2-5*sc,w-16*sc,2.2*sc,1*sc);sctx.fill();
+  }else{                                // Corolla: taller family car, classic windows + grille
+    sctx.fillStyle=grad;rr(x-w/2,y-h/2,w,h,8*sc);sctx.fill();
+    sctx.fillStyle=shp.cab;rr(x-w/2+6*sc,y-h*0.30,w-12*sc,h*0.26,5*sc);sctx.fill();   // windshield
+    rr(x-w/2+6*sc,y+h*0.06,w-12*sc,h*0.20,5*sc);sctx.fill();                          // rear glass
+    sctx.fillStyle="rgba(255,255,255,.10)";rr(x-w/2+7*sc,y-h*0.02,w-14*sc,h*0.06,3*sc);sctx.fill(); // roof panel
+    sctx.strokeStyle="rgba(200,205,214,.35)";sctx.lineWidth=1.4;sctx.beginPath();sctx.moveTo(x-w/2+9*sc,y-h/2+4*sc);sctx.lineTo(x+w/2-9*sc,y-h/2+4*sc);sctx.stroke(); // chrome grille
   }
   sctx.strokeStyle=isHost?shp.trim:"rgba(255,255,255,.22)";sctx.lineWidth=isHost?2.2:1.8;rr(x-w/2,y-h/2,w,h,10*sc);sctx.stroke();
   if(!isHost&&S.detected){sctx.strokeStyle="#39d98a";sctx.lineWidth=2.4;sctx.shadowColor="#39d98a";sctx.shadowBlur=10;rr(x-w/2,y-h/2,w,h,10*sc);sctx.stroke();sctx.shadowBlur=0;}
@@ -372,25 +399,30 @@ function drawVehicle(x,y,sc,shp,brake,isHost){const w=shp.w*sc,h=shp.h*sc;
   const on=brake&&(!isHost||Math.sin(S.t*12)>-0.3);
   for(const dx of[-w/2+8*sc,w/2-8*sc]){sctx.fillStyle=on?"#ff2d3a":"#5a1420";if(on){sctx.shadowColor="#ff2d3a";sctx.shadowBlur=15*sc;}rr(x+dx-4*sc,y+h/2-8*sc,8*sc,5*sc,2*sc);sctx.fill();sctx.shadowBlur=0;}}
 
-function drawPed(x,y,sc,dir,isChild,moving){const s=sc*(isChild?0.85:1.2),col=S.detected?"#39d98a":"#c9d2de";
-  const d=dir||1;
-  sctx.strokeStyle=col;sctx.fillStyle=col;sctx.lineWidth=(isChild?2.8:3.4)*s;sctx.lineCap="round";
-  const hy=y-26*s,tuck=y-2*s;
-  sctx.beginPath();sctx.arc(x,hy,6*s,0,7);sctx.fill();          // head
-  sctx.beginPath();sctx.moveTo(x,hy+6*s);sctx.lineTo(x,tuck);sctx.stroke();  // torso
-  const sw=moving?Math.sin(S.t*(isChild?9:5))*6*s:0;           // swing only while moving
-  if(moving){
-    sctx.beginPath();sctx.moveTo(x,y-16*s);sctx.lineTo(x+d*sw,y-9*s);sctx.moveTo(x,y-16*s);sctx.lineTo(x-d*sw*0.6,y-9*s);sctx.stroke();
-    sctx.beginPath();sctx.moveTo(x,tuck);sctx.lineTo(x+d*(6*s+sw),y+14*s);sctx.moveTo(x,tuck);sctx.lineTo(x-d*(6*s-sw),y+14*s);sctx.stroke();
-    // motion arrow (only while actually moving)
-    sctx.strokeStyle="rgba(255,180,32,.7)";sctx.lineWidth=2*s;
-    sctx.beginPath();sctx.moveTo(x+d*11*s,y-6*s);sctx.lineTo(x+d*20*s,y-6*s);
-    sctx.lineTo(x+d*16*s,y-9*s);sctx.moveTo(x+d*20*s,y-6*s);sctx.lineTo(x+d*16*s,y-3*s);sctx.stroke();
-  }else{                                             // standing still: symmetric relaxed pose
-    sctx.beginPath();sctx.moveTo(x,y-15*s);sctx.lineTo(x-6*s,y-8*s);sctx.moveTo(x,y-15*s);sctx.lineTo(x+6*s,y-8*s);sctx.stroke(); // arms down
-    sctx.beginPath();sctx.moveTo(x,tuck);sctx.lineTo(x-5*s,y+15*s);sctx.moveTo(x,tuck);sctx.lineTo(x+5*s,y+15*s);sctx.stroke();   // legs apart
-  }
-  if(S.detected){sctx.strokeStyle="rgba(57,217,138,.5)";sctx.lineWidth=2;sctx.strokeRect(x-12*s,y-34*s,24*s,52*s);}}
+function drawPed(x,y,sc,dir,isChild,moving){const s=sc*(isChild?1.0:1.3),d=dir||1;
+  const sw=moving?Math.sin(S.t*(isChild?9:5))*4*s:0;
+  const shirt=isChild?"#ff7043":(S.detected?"#2f9e6a":"#8a94a4");
+  const pants=isChild?"#2f5aa8":"#464e5c";
+  const skin=isChild?"#f2c191":"#e2cba6";
+  // ground shadow
+  sctx.fillStyle="rgba(0,0,0,.4)";sctx.beginPath();sctx.ellipse(x,y+17*s,9*s,3*s,0,0,7);sctx.fill();
+  // legs (filled, slight stride while moving)
+  sctx.fillStyle=pants;
+  rr(x-4.6*s-sw,y+2*s,3.8*s,15*s,1.8*s);sctx.fill();
+  rr(x+0.8*s+sw,y+2*s,3.8*s,15*s,1.8*s);sctx.fill();
+  // torso
+  sctx.fillStyle=shirt;rr(x-5.4*s,y-12*s,10.8*s,16*s,4*s);sctx.fill();
+  // arms
+  rr(x-8*s,y-11*s,3*s,13*s,1.5*s);sctx.fill();rr(x+5*s,y-11*s,3*s,13*s,1.5*s);sctx.fill();
+  // head
+  sctx.fillStyle=skin;sctx.beginPath();sctx.arc(x,y-18*s,5.6*s,0,7);sctx.fill();
+  // hair cap
+  sctx.fillStyle=isChild?"#6b4423":"#3a3a44";sctx.beginPath();sctx.arc(x,y-19.5*s,5.6*s,Math.PI,0);sctx.fill();
+  // motion arrow while crossing
+  if(moving){sctx.strokeStyle="rgba(255,180,32,.85)";sctx.lineWidth=2.2*s;sctx.beginPath();
+    sctx.moveTo(x+d*10*s,y-14*s);sctx.lineTo(x+d*19*s,y-14*s);
+    sctx.lineTo(x+d*15*s,y-17*s);sctx.moveTo(x+d*19*s,y-14*s);sctx.lineTo(x+d*15*s,y-11*s);sctx.stroke();}
+  if(S.detected){sctx.strokeStyle="rgba(57,217,138,.6)";sctx.lineWidth=2;sctx.strokeRect(x-11*s,y-26*s,22*s,45*s);}}
 function drawBall(x,y,sc){const r=6*sc;sctx.fillStyle="#ff6a2a";sctx.beginPath();sctx.arc(x,y,r,0,7);sctx.fill();
   sctx.strokeStyle="#7a2d10";sctx.lineWidth=1.4*sc;sctx.beginPath();sctx.arc(x,y,r,0,7);sctx.stroke();
   sctx.beginPath();sctx.moveTo(x-r,y);sctx.lineTo(x+r,y);sctx.moveTo(x,y-r);sctx.lineTo(x,y+r);sctx.stroke();}
@@ -627,8 +659,7 @@ window.addEventListener("resize",()=>{fitScene();fitGraphs();});
 
 // ===== LOOP =====
 let last=0;function frame(ts){const dt=Math.min((ts-last)/1000||0.016,0.05);last=ts;update(dt);
-  if(S.scenKey==="roundabout")drawRoundScene();else drawScene();
-  drawGraphs();drawDOM();
+  drawScene();drawGraphs();drawDOM();
   if(S.specOpen){const w=document.getElementById("specWrap");if(w)w.innerHTML=specSheetInner();else S.specOpen=false;}
   requestAnimationFrame(frame);}
 updateScenBtn();applyScenario();reset();fitScene();fitGraphs();updateLabels();requestAnimationFrame(frame);
