@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="he">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -100,23 +100,23 @@
 <div class="app">
   <div class="col panel">
     <div class="brand">LiDAR · ADAS<small>Perception &amp; Control Bench</small></div>
-    <div class="sec">Scenario</div>
+    <div class="sec">Scenario Select</div>
     <button class="scenbtn" id="scenBtn"></button>
 
-    <div><div class="sec" style="margin-bottom:5px">Host Vehicle</div>
+    <div><div class="sec" style="margin-bottom:5px">Vehicle Preset</div>
       <select id="vehicle">
         <option value="tesla">Tesla Model 3 (μ=0.90)</option>
         <option value="corolla">Toyota Corolla (μ=0.75)</option>
         <option value="truck">Heavy Truck (μ=0.60)</option>
       </select></div>
 
-    <div class="ctl"><div class="lab"><span>Cruise Speed V</span><b id="lv-speed">90 km/h</b></div>
+    <div class="ctl"><div class="lab"><span>Speed</span><b id="lv-speed">90 km/h</b></div>
       <input type="range" id="s-speed" min="0" max="160" step="1" value="90"></div>
-    <div class="ctl"><div class="lab"><span>Fog / Rain α</span><b id="lv-fog">0.020</b></div>
+    <div class="ctl"><div class="lab"><span>Fog / Dust α</span><b id="lv-fog">0.020</b></div>
       <input type="range" id="s-fog" min="0" max="0.3" step="0.005" value="0.02"></div>
     <div class="ctl"><div class="lab"><span>Reflectivity ρ</span><b id="lv-rho">0.60</b></div>
       <input type="range" id="s-rho" min="0.05" max="1" step="0.05" value="0.6"></div>
-    <div class="ctl"><div class="lab"><span>Receiver Noise σ</span><b id="lv-noise">0.15</b></div>
+    <div class="ctl"><div class="lab"><span>Noise σ</span><b id="lv-noise">0.15</b></div>
       <input type="range" id="s-noise" min="0" max="0.5" step="0.01" value="0.15"></div>
 
     <div class="block"><div class="sec">Target</div><div class="tgt" id="tgt-label">—</div>
@@ -162,26 +162,26 @@ const VEHICLES={
 };
 const SCEN={
   cutin:{type:"car",beh:"cutin",fog:0.02,rho:0.6,v0:60,lat0:1.0,label:"CUT-IN VEHICLE",
-    name:"Cut-In",desc:"רכב נכנס לנתיב",icon:"cutin",eqs:["ttc","braking"],
-    challenge:"רכב מהנתיב הסמוך חותך פנימה לפנינו — המערכת חייבת לזהות אותו ולהאט או לעקוב מיד."},
+    name:"Cut-In",desc:"vehicle merges in",icon:"cutin",eqs:["ttc","braking"],
+    challenge:"A car from the adjacent lane cuts in ahead — the system must detect it and slow or follow immediately."},
   hardbrake:{type:"car",beh:"brake",fog:0.02,rho:0.6,v0:80,lat0:0,label:"HARD-BRAKING LEAD",
-    name:"Hard Brake",desc:"בלימת פתע לפנים",icon:"brake",eqs:["braking","ttc"],
-    challenge:"הרכב שלפנינו בולם בעוצמה — בלימת חירום AEB עד עצירה מלאה."},
+    name:"Hard Brake",desc:"lead brakes hard",icon:"brake",eqs:["braking","ttc"],
+    challenge:"The lead vehicle brakes hard — emergency braking (AEB) all the way to a full stop."},
   pedestrian:{type:"ped",beh:"cross",fog:0.03,rho:0.1,v0:0,lat0:-1.7,label:"PEDESTRIAN",
-    name:"Pedestrian",desc:"הולך רגל חוצה",icon:"ped",eqs:["lidar","braking"],
-    challenge:"הולך רגל חוצה בקו ישר. החזרה נמוכה ρ=0.1 יוצרת הד חלש ו-SNR נמוך — קשה לזיהוי, נדרשת עצירה."},
+    name:"Pedestrian",desc:"pedestrian crossing",icon:"ped",eqs:["lidar","braking"],
+    challenge:"A pedestrian crosses in a straight line. Low reflectivity (ρ=0.1) means a weak echo and low SNR — hard to detect."},
   child:{type:"child",beh:"chase",fog:0.02,rho:0.12,v0:0,lat0:-1.7,label:"CHILD CHASING BALL",
-    name:"Child + Ball",desc:"ילד רץ לכביש",icon:"child",eqs:["lidar","ttc","braking"],
-    challenge:"ילד קטן עם RCS נמוך רץ אחרי כדור לכביש ואז עומד במקום. הד חלש ו-TTC קצר מאוד."},
+    name:"Child + Ball",desc:"child runs to road",icon:"child",eqs:["lidar","ttc","braking"],
+    challenge:"A small child (low RCS) runs after a ball into the road, then stops. Weak echo and a very short TTC."},
   fog:{type:"car",beh:"slow",fog:0.22,rho:0.6,v0:40,lat0:0,label:"LEAD IN HEAVY FOG",
-    name:"Heavy Fog",desc:"ראות נמוכה",icon:"fog",eqs:["beer","lidar","braking"],
-    challenge:"ערפל כבד מנחית את אלומת הלייזר לפי Beer-Lambert — המטרה מזוהה רק מטווח קצר מאוד."},
+    name:"Heavy Fog",desc:"low visibility",icon:"fog",eqs:["beer","lidar","braking"],
+    challenge:"Heavy fog attenuates the laser beam (Beer-Lambert) — the target is only detected at very short range."},
   static:{type:"obstacle",beh:"static",fog:0.02,rho:0.4,v0:0,lat0:0,label:"STATIC OBSTACLE",
-    name:"Static Obstacle",desc:"מכשול נייח",icon:"obstacle",eqs:["matched","braking"],
-    challenge:"מכשול נייח פתאומי כמו מחסום או קונוס. הרכב עוצר או עוקף לפי מרחק הבלימה."},
+    name:"Static Obstacle",desc:"stationary hazard",icon:"obstacle",eqs:["matched","braking"],
+    challenge:"A sudden stationary obstacle (barrier / cone). The car stops or steers around it by braking distance."},
   roundabout:{type:"roundabout",beh:"curve",fog:0.02,rho:0.6,v0:0,lat0:0,label:"ROUNDABOUT ENTRY",
-    name:"Roundabout",desc:"כניסה לכיכר",icon:"round",eqs:["curve","braking"],
-    challenge:"כניסה לכיכר — הרכב חייב להאט למהירות הבטוחה Vmax=√(μgr), שתלויה באחיזת הצמיגים."},
+    name:"Traffic Roundabout",desc:"curved speed zone",icon:"round",eqs:["curve","braking"],
+    challenge:"Entering a roundabout — the car slows to the safe cornering speed Vmax=√(μ·g·r) and follows the circular lane."},
 };
 
 // ===== LiDAR (unchanged) =====
@@ -227,13 +227,15 @@ class Target{constructor(s,vsafe){this.type=s.type;this.beh=s.beh;this.speed=s.b
 const S={speed:90,fog:0.02,rho:0.6,noise:0.15,vehKey:"tesla",scenKey:"cutin",
   ego:null,target:null,range:START_RANGE,scroll:0,t:0,decision:"CRUISE",committed:false,
   following:false,ma:new MA(MA_WIN),detected:false,raw:null,sm:null,dMech:0,dReq:0,snr:0,
-  speedDiff:0,ttc:Infinity,prec:0,scan:[],last:null,blinded:false,stopTimer:0,specOpen:false};
+  speedDiff:0,ttc:Infinity,prec:0,scan:[],last:null,blinded:false,stopTimer:0,specOpen:false,
+  roundAngle:Math.PI/2,leadAngle:Math.PI/2+0.55,roundEgo:null};
 function veh(){return VEHICLES[S.vehKey];}
 function curveVsafe(){return Math.sqrt(veh().mu*G*ROUND_R)*3.6;}
 function applyScenario(){const sc=SCEN[S.scenKey];S.fog=sc.fog;S.rho=sc.rho;
   document.getElementById("s-fog").value=sc.fog;document.getElementById("s-rho").value=sc.rho;updateLabels();renderScenMath();}
 function reset(){const sc=SCEN[S.scenKey];S.range=START_RANGE;S.ego=new Ego(S.speed);
-  S.target=new Target(sc,curveVsafe());S.decision="CRUISE";S.committed=false;S.following=false;S.ma.reset();S.stopTimer=0;}
+  S.target=new Target(sc,curveVsafe());S.decision="CRUISE";S.committed=false;S.following=false;S.ma.reset();S.stopTimer=0;
+  S.roundAngle=Math.PI/2;S.leadAngle=Math.PI/2+0.55;if(sc.type==="roundabout")S.range=0.55*ROUND_R+8;}
 
 // ===== UPDATE (decision uses detailed D_required) =====
 function update(dt){S.t+=dt;const v=S.ego,VH=veh();
@@ -249,18 +251,18 @@ function update(dt){S.t+=dt;const v=S.ego,VH=veh();
   const closing=(v.speed-S.target.speed)/3.6;S.ttc=(closing>0.2&&S.detected)?S.range/closing:Infinity;
   runScan();
 
-  // ---- ROUNDABOUT: a speed-advisory zone the car drives THROUGH (not a stop) ----
+  // ---- ROUNDABOUT: car circulates along the curved lane at safe speed ----
   if(S.target.type==="roundabout"){
     const vsafe=curveVsafe();
-    v.cruise=Math.min(S.speed,vsafe);            // reduce to safe cornering speed
-    v.braking=false;v.merging=false;
+    v.cruise=vsafe;v.braking=false;v.merging=false;
     S.decision=(v.speed>vsafe+2)?"SLOWING":"ROUNDABOUT";
-    v.tx=(S.range<38&&S.range>3)?0.6:0.0;        // arc around the central island
     v.update(dt,VH);
-    const ve=v.speed/3.6;
-    S.range=Math.max(0,S.range-ve*dt);           // drive through, gap keeps closing
-    S.scroll=(S.scroll+ve*dt*9)%2000;
-    if(S.range<=3.5)reset();                      // exited -> approach the next one
+    const vms=v.speed/3.6,omega=vms/ROUND_R,lomega=(vsafe/3.6)/ROUND_R;
+    S.roundAngle+=omega*dt;S.leadAngle+=lomega*dt;   // both circulate
+    let gap=((S.leadAngle-S.roundAngle)%(2*Math.PI)+2*Math.PI)%(2*Math.PI);
+    if(gap>Math.PI)gap-=2*Math.PI;                    // shortest signed arc gap
+    S.range=Math.max(5,Math.min(MAXV,Math.abs(gap)*ROUND_R+8));
+    S.scroll=(S.scroll+vms*dt*9)%2000;
     return;
   }
 
@@ -291,6 +293,49 @@ function wX(wx,y){return SW/2+wx*rHalf(y)*0.55;}
 function rr(x,y,w,h,rad){sctx.beginPath();sctx.moveTo(x+rad,y);sctx.arcTo(x+w,y,x+w,y+h,rad);sctx.arcTo(x+w,y+h,x,y+h,rad);sctx.arcTo(x,y+h,x,y,rad);sctx.arcTo(x,y,x+w,y,rad);sctx.closePath();}
 function shade(hex,amt){const n=parseInt(hex.slice(1),16);let r=(n>>16)+amt,g=((n>>8)&255)+amt,b=(n&255)+amt;
   r=Math.max(0,Math.min(255,r));g=Math.max(0,Math.min(255,g));b=Math.max(0,Math.min(255,b));return"#"+((1<<24)+(r<<16)+(g<<8)+b).toString(16).slice(1);}
+
+// ---- rotated car + rotating LiDAR beam for the roundabout top-down view ----
+function drawCarRot(x,y,heading,sc,shp,brake,isHost){sctx.save();sctx.translate(x,y);
+  sctx.rotate(heading+Math.PI/2);           // car front (local -y) aligns with heading
+  drawVehicle(0,0,sc,shp,brake,isHost);sctx.restore();}
+function drawRingBeam(x,y,heading){const L=Math.min(SW,SH)*0.32,col=S.detected?"57,217,138":"255,77,109";
+  sctx.save();sctx.translate(x,y);sctx.rotate(heading);   // local +x = travel direction
+  sctx.fillStyle=`rgba(${col},.09)`;sctx.beginPath();sctx.moveTo(0,0);
+  sctx.lineTo(L*Math.cos(-FOV),L*Math.sin(-FOV));sctx.lineTo(L*Math.cos(FOV),L*Math.sin(FOV));sctx.closePath();sctx.fill();
+  sctx.setLineDash([9,12]);sctx.lineDashOffset=-(S.t*90)%21;sctx.strokeStyle=`rgba(${col},.9)`;sctx.lineWidth=3;
+  sctx.beginPath();sctx.moveTo(0,0);sctx.lineTo(L,0);sctx.stroke();sctx.setLineDash([]);sctx.restore();}
+function drawRoundScene(){const g=sctx,cx=SW/2,cy=SH*0.50,R=Math.min(SW,SH)*0.30,laneW=R*0.42,islR=R-laneW*0.55;
+  g.clearRect(0,0,SW,SH);
+  g.fillStyle="#0b160f";g.fillRect(0,0,SW,SH);                       // grass field
+  // approach + exit roads (tangential stubs)
+  g.fillStyle="#141a24";
+  g.fillRect(cx-laneW*0.5,cy+R-laneW*0.5,laneW,SH-(cy+R)+laneW);     // bottom approach
+  g.fillRect(cx+R-laneW*0.5,cy-laneW*0.5,SW-(cx+R)+laneW,laneW);     // right exit
+  // ring asphalt band
+  g.lineWidth=laneW;g.strokeStyle="#161c26";g.beginPath();g.arc(cx,cy,R,0,7);g.stroke();
+  // ring edges (neon) + dashed centre lane
+  g.lineWidth=2;g.strokeStyle="rgba(0,224,255,.35)";
+  g.beginPath();g.arc(cx,cy,R+laneW/2,0,7);g.stroke();g.beginPath();g.arc(cx,cy,R-laneW/2,0,7);g.stroke();
+  g.setLineDash([12,12]);g.strokeStyle="rgba(235,238,242,.5)";g.beginPath();g.arc(cx,cy,R,0,7);g.stroke();g.setLineDash([]);
+  // central island: curb + grass + bushes
+  g.fillStyle="#4a515e";g.beginPath();g.arc(cx,cy,islR,0,7);g.fill();
+  g.fillStyle="#1e6437";g.beginPath();g.arc(cx,cy,islR-4,0,7);g.fill();
+  g.fillStyle="#268047";g.beginPath();g.arc(cx,cy-islR*0.15,islR*0.7,0,7);g.fill();
+  for(let i=0;i<5;i++){const a=i/5*7,bx=cx+Math.cos(a)*islR*0.5,by=cy+Math.sin(a)*islR*0.5;
+    g.fillStyle="#164a2a";g.beginPath();g.arc(bx,by,islR*0.14,0,7);g.fill();
+    g.fillStyle="#2e7d49";g.beginPath();g.arc(bx-2,by-2,islR*0.09,0,7);g.fill();}
+  // lead vehicle on the ring
+  const lx=cx+Math.cos(S.leadAngle)*R,ly=cy+Math.sin(S.leadAngle)*R,lh=S.leadAngle+Math.PI/2;
+  drawCarRot(lx,ly,lh,0.72,{w:44,h:74,body:S.detected?"#7a3038":"#39414d",cab:"#0b1420",trim:"#39d98a",kind:"sedan"},false,false);
+  // ego on the ring + rotating beam ahead
+  const ex=cx+Math.cos(S.roundAngle)*R,ey=cy+Math.sin(S.roundAngle)*R,eh=S.roundAngle+Math.PI/2;
+  drawRingBeam(ex,ey,eh);
+  // scan points on the lead vehicle
+  if(S.detected){for(let i=-1;i<=1;i++){const px=lx+Math.cos(lh)*i*10,py=ly+Math.sin(lh)*i*10;
+    g.fillStyle="#39d98a";g.shadowColor="#39d98a";g.shadowBlur=8;g.beginPath();g.arc(px,py,3.4,0,7);g.fill();g.shadowBlur=0;}}
+  drawCarRot(ex,ey,eh,0.9,hostShape(),S.ego.braking&&S.ego.speed>0.1,true);
+  S.roundEgo={x:ex,y:ey};
+  drawFog();drawHUD();}
 
 function drawScene(){sctx.clearRect(0,0,SW,SH);sctx.fillStyle="#070a10";sctx.fillRect(0,0,SW,SH);
   const cx=SW/2,hy=HZ(),ey=EY(),th=rHalf(hy),bh=rHalf(ey+40);
@@ -397,7 +442,9 @@ function drawBeam(){if(S.blinded)return;const yF=r2y(S.range),fx=wX(S.ego.x,EY()
   sctx.beginPath();sctx.moveTo(fx,fy);sctx.lineTo(tx,yF);sctx.stroke();sctx.setLineDash([]);}
 
 function hostShape(){return veh().shape;}
-function egoBox(){const sp=hostShape(),y=EY(),x=wX(S.ego.x,y);return{x:x-sp.w/2,y:y-sp.h/2,w:sp.w,h:sp.h};}
+function egoBox(){const sp=hostShape();
+  if(S.scenKey==="roundabout"&&S.roundEgo)return{x:S.roundEgo.x-sp.w/2,y:S.roundEgo.y-sp.h/2,w:sp.w,h:sp.h};
+  const y=EY(),x=wX(S.ego.x,y);return{x:x-sp.w/2,y:y-sp.h/2,w:sp.w,h:sp.h};}
 function drawHost(){drawVehicle(wX(S.ego.x,EY()),EY(),1.0,hostShape(),S.ego.braking&&S.ego.speed>0.1,true);}
 
 let fogP=null;function drawFog(){const f=Math.max(0,Math.min(1,S.fog/0.3));if(f<=0.01)return;
@@ -411,6 +458,9 @@ function drawHUD(){sctx.font="bold 17px Consolas,monospace";sctx.textAlign="left
   sctx.fillStyle="#00e0ff";sctx.fillText("SPEED "+S.ego.speed.toFixed(0).padStart(3)+" km/h",16,26);
   sctx.fillStyle=S.detected?"#39d98a":"#ff4d6d";sctx.fillText(S.detected&&S.sm!=null?"RANGE "+S.sm.toFixed(1)+" m":"RANGE  -- LOST",16,48);
   if(S.ego.braking&&S.ego.speed>0.1&&Math.sin(S.t*10)>-0.2){sctx.fillStyle="#ff4d6d";sctx.beginPath();sctx.arc(24,74,7,0,7);sctx.fill();sctx.fillText("BRAKING",38,80);}
+  // Forward Collision Warning: detected + short TTC, before AEB/merge engages
+  else if(S.detected&&isFinite(S.ttc)&&S.ttc<2.5&&S.decision!=="AEB"&&!S.ego.merging&&Math.sin(S.t*12)>-0.3){
+    sctx.fillStyle="#ffb020";sctx.fillText("⚠ FCW — FORWARD COLLISION WARNING",16,80);}
   let msg=null,col="#ff4d6d";
   if(S.blinded){msg="SENSOR BLINDED — DISENGAGING AUTOPILOT";col="#ffb020";}
   else if(S.decision==="AEB"&&S.ego.braking){msg="EMERGENCY BRAKING ENGAGED";col="#ff4d6d";}
@@ -445,7 +495,9 @@ function drawDOM(){$("m-true").textContent=S.range.toFixed(1)+" m";$("m-sm").tex
   $("closing").style.color=S.speedDiff>DV_THR?"var(--red)":"var(--green)";
   const dec=$("dec"),c={CRUISE:"--cyan",AEB:"--red","LANE MERGE":"--green",FOLLOW:"--amber",
     SLOWING:"--amber",ROUNDABOUT:"--amber"}[S.decision]||"--cyan";
-  dec.textContent=S.decision;dec.style.color=`var(${c})`;dec.style.borderColor=`var(${c})`;}
+  const DECLABEL={CRUISE:"Cruise","LANE MERGE":"Lane Merge",AEB:"AEB Active",
+    FOLLOW:"Adaptive Cruise",SLOWING:"Traffic Roundabout",ROUNDABOUT:"Traffic Roundabout"};
+  dec.textContent=DECLABEL[S.decision]||S.decision;dec.style.color=`var(${c})`;dec.style.borderColor=`var(${c})`;}
 
 // ===== EQUATION REGISTRY (per-term explanations) =====
 const EQ={
@@ -499,23 +551,23 @@ window.closeModal=()=>{S.specOpen=false;overlay.classList.remove("show");};
 overlay.addEventListener("click",e=>{if(e.target===overlay)closeModal();});
 function openEq(key){S.specOpen=false;const e=EQ[key];let dl="";for(const [t,d] of e.terms())dl+=`<div><dt>${t}</dt><dd class="rtl">${bidi(d)}</dd></div>`;
   openModal(`<h3>${e.title}</h3><div class="sub rtl">${bidi(e.sub)}</div><div class="eq">${e.full}</div><dl>${dl}</dl><div class="note rtl">${bidi(e.note)}</div>`);}
-function specRow(label,value,explain){return `<tr><td>${label}<div class="ex rtl">${bidi(explain)}</div></td><td>${value}</td></tr>`;}
+function specRow(label,value,explain){return `<tr><td>${label}<div class="ex">${explain}</div></td><td>${value}</td></tr>`;}
 function specSheetInner(){const VH=veh(),v=S.ego?S.ego.speed:S.speed,ve=v/3.6,lat=T_DSP+T_FILTER+VH.tAct,dReact=ve*lat,dMech=ve*ve/(2*VH.decel),dReq=dReact+dMech+BUFFER;
-  return `<h3>${VH.name} — Spec Sheet</h3><div class="sub rtl">${bidi(`ערכים חיים לפי המהירות הנוכחית ${v.toFixed(0)} km/h. הם מתעדכנים כשהרכב מאיץ או בולם.`)}</div>
+  return `<h3>${VH.name} — Spec Sheet</h3><div class="sub">Live values at the current speed (${v.toFixed(0)} km/h). They update as the car accelerates or brakes.</div>
     <div class="spec"><table>
-    ${specRow("Current speed",`${v.toFixed(0)} km/h`,"כמה מהר הרכב נוסע כרגע.")}
-    ${specRow("Friction μ",`${VH.mu}`,"אחיזה בין הצמיג לכביש — גבוה יותר פירושו בלימה קצרה יותר וסיבוב מהיר יותר.")}
-    ${specRow("Max acceleration",`${VH.aMax.toFixed(1)} m/s²`,"כמה חזק הרכב מסוגל להאיץ.")}
-    ${specRow("Max deceleration",`${VH.decel.toFixed(2)} m/s²`,"הבלימה החזקה ביותר האפשרית, שווה למכפלה μ×g.")}
-    ${specRow("Actuator delay",`${VH.tAct.toFixed(2)} s`,`השהיית בלמים מסוג ${VH.act} — הזמן מהפקודה ועד שהרפידות תופסות.`)}
-    ${specRow("Total latency",`${lat.toFixed(2)} s`,"סכום ההשהיות של החיישן, המסנן והאקטואטור.")}
-    ${specRow("Blind distance",`${dReact.toFixed(1)} m`,"המרחק שהרכב עובר במהירות מלאה במהלך ההשהיה, לפני שהבלימה מתחילה.")}
-    ${specRow("Mechanical braking",`${dMech.toFixed(1)} m`,"המרחק הדרוש לעצירה מרגע הפעלת הבלמים, שווה ל-V²/(2μg).")}
-    ${specRow("Safety buffer","5 m","מרווח קבוע שנשמר מאחורי המטרה.")}
-    ${specRow("<b>D_required</b>",`<b>${dReq.toFixed(1)} m</b>`,"סך המרחק לעצירה בטוחה: עיוורון ועוד מכני ועוד מרווח.")}
-    ${specRow("Roundabout speed",`${curveVsafe().toFixed(0)} km/h`,"המהירות המרבית לכיכר לפי האחיזה, שווה ל-√(μ·g·r).")}
+    ${specRow("Current speed",`${v.toFixed(0)} km/h`,"how fast the host car is going right now.")}
+    ${specRow("Friction μ",`${VH.mu}`,"tyre-road grip — higher means shorter braking and faster cornering.")}
+    ${specRow("Max acceleration",`${VH.aMax.toFixed(1)} m/s²`,"how hard this vehicle can speed up.")}
+    ${specRow("Max deceleration",`${VH.decel.toFixed(2)} m/s²`,"hardest possible braking, equal to μ × g.")}
+    ${specRow("Actuator delay",`${VH.tAct.toFixed(2)} s`,`${VH.act} brake lag — time from command to the pads gripping.`)}
+    ${specRow("Total latency",`${lat.toFixed(2)} s`,"sensor + filter + actuator delay combined.")}
+    ${specRow("Blind distance",`${dReact.toFixed(1)} m`,"metres travelled at full speed during that latency, before braking begins.")}
+    ${specRow("Mechanical braking",`${dMech.toFixed(1)} m`,"metres to stop once the brakes are applied, equal to V²/(2μg).")}
+    ${specRow("Safety buffer","5 m","fixed gap kept behind the target.")}
+    ${specRow("<b>D_required</b>",`<b>${dReq.toFixed(1)} m</b>`,"total safe stopping distance: blind + mechanical + buffer.")}
+    ${specRow("Roundabout speed",`${curveVsafe().toFixed(0)} km/h`,"max cornering speed for this grip, equal to √(μ·g·r).")}
     </table></div>
-    <div class="note rtl">${bidi("טיפ: לחיצה כפולה על הרכב מכפילה את המהירות ×2 — ואפשר לראות איך D_required גדל בריבוע המהירות.")}</div>`;}
+    <div class="note">Tip: double-click the car to double its speed (×2), then watch D_required grow with the square of speed.</div>`;}
 function openSpec(){S.specOpen=true;openModal(`<div id="specWrap">${specSheetInner()}</div>`);}
 
 // ===== SCENARIO PICKER (window with preview screenshots) =====
@@ -548,11 +600,11 @@ function scenPreview(key){const sc=SCEN[key];const road=`<polygon points="72,14 
     <rect x="7" y="7" width="${act.length*6.2+14}" height="17" rx="8" fill="#0b1119" stroke="${ac}" stroke-opacity=".6"/>
     <text x="15" y="19" font-size="10" fill="${ac}" font-family="monospace">${act}</text></svg>`;}
 function updateScenBtn(){const sc=SCEN[S.scenKey];$("scenBtn").innerHTML=
-  `<span class="em">${SC_EMOJI[sc.icon]}</span><span><span class="nm">${sc.name}</span><br><span class="ds rtl">${bidi(sc.desc)}</span></span><span class="go">CHANGE ▸</span>`;}
+  `<span class="em">${SC_EMOJI[sc.icon]}</span><span><span class="nm">${sc.name}</span><br><span class="ds">${sc.desc}</span></span><span class="go">CHANGE ▸</span>`;}
 function openScenarioPicker(){let cards="";
   Object.entries(SCEN).forEach(([key,sc])=>{cards+=`<div class="pcard${key===S.scenKey?" on":""}" data-pick="${key}">
-    ${scenPreview(key)}<div class="body"><div class="nm">${SC_EMOJI[sc.icon]} ${sc.name}</div><div class="ch rtl">${bidi(sc.challenge)}</div></div></div>`;});
-  openModal(`<h3>בחירת תרחיש</h3><div class="sub rtl">${bidi("כל כרטיס מציג את המצב, האתגר, והתגובה הצפויה של המערכת.")}</div><div class="pickgrid">${cards}</div>`);
+    ${scenPreview(key)}<div class="body"><div class="nm">${SC_EMOJI[sc.icon]} ${sc.name}</div><div class="ch">${sc.challenge}</div></div></div>`;});
+  openModal(`<h3>Scenario Select</h3><div class="sub">Each tile previews the situation, the challenge, and the system's expected response.</div><div class="pickgrid">${cards}</div>`);
   modal.querySelectorAll(".pcard").forEach(c=>c.addEventListener("click",()=>{
     S.scenKey=c.dataset.pick;applyScenario();reset();updateScenBtn();closeModal();}));}
 $("scenBtn").addEventListener("click",openScenarioPicker);
@@ -581,7 +633,9 @@ scene.addEventListener("dblclick",e=>{const r=scene.getBoundingClientRect(),mx=e
 window.addEventListener("resize",()=>{fitScene();fitGraphs();});
 
 // ===== LOOP =====
-let last=0;function frame(ts){const dt=Math.min((ts-last)/1000||0.016,0.05);last=ts;update(dt);drawScene();drawGraphs();drawDOM();
+let last=0;function frame(ts){const dt=Math.min((ts-last)/1000||0.016,0.05);last=ts;update(dt);
+  if(S.scenKey==="roundabout")drawRoundScene();else drawScene();
+  drawGraphs();drawDOM();
   if(S.specOpen){const w=document.getElementById("specWrap");if(w)w.innerHTML=specSheetInner();else S.specOpen=false;}
   requestAnimationFrame(frame);}
 updateScenBtn();applyScenario();reset();fitScene();fitGraphs();updateLabels();requestAnimationFrame(frame);
