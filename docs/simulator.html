@@ -204,9 +204,10 @@ class Target{constructor(s,vsafe){this.type=s.type;this.beh=s.beh;this.speed=s.b
     else if(this.beh==="cutin"){this.lat+=(0-this.lat)*Math.min(1,0.4*dt);if(this.timer>2)this.lat=Math.max(0,this.lat-0.35*dt);}
     else if(this.beh==="cross"){                 // straight-line crossing, one clean direction
       this.lat+=this.dir*0.9*dt;if(this.lat>1.8){this.lat=1.8;this.dir=-1;}if(this.lat<-1.8){this.lat=-1.8;this.dir=1;}}
-    else if(this.beh==="chase"){                 // child runs straight; ball rolls ahead
-      this.lat+=this.dir*1.35*dt;this.ballLat=this.lat+this.dir*0.7;
-      if(this.lat>1.8){this.lat=1.8;this.dir=-1;}if(this.lat<-1.8){this.lat=-1.8;this.dir=1;}}}
+    else if(this.beh==="chase"){                 // child runs into the road once, then stays put
+      const settle=-0.25;                        // final spot inside our lane
+      if(this.timer<1.1)this.lat+=(settle-this.lat)*Math.min(1,2.4*dt);else this.lat=settle;
+      this.ballLat=this.lat+0.55;}}              // ball just ahead of the child
   inLane(){return Math.abs(this.lat)<0.6;}}
 
 // ===== STATE =====
@@ -234,6 +235,22 @@ function update(dt){S.t+=dt;const v=S.ego,VH=veh();
   S.dMech=dMech;S.dReq=dReq;S.speedDiff=v.speed-S.target.speed;
   const closing=(v.speed-S.target.speed)/3.6;S.ttc=(closing>0.2&&S.detected)?S.range/closing:Infinity;
   runScan();
+
+  // ---- ROUNDABOUT: a speed-advisory zone the car drives THROUGH (not a stop) ----
+  if(S.target.type==="roundabout"){
+    const vsafe=curveVsafe();
+    v.cruise=Math.min(S.speed,vsafe);            // reduce to safe cornering speed
+    v.braking=false;v.merging=false;
+    S.decision=(v.speed>vsafe+2)?"SLOWING":"ROUNDABOUT";
+    v.tx=(S.range<38&&S.range>3)?0.6:0.0;        // arc around the central island
+    v.update(dt,VH);
+    const ve=v.speed/3.6;
+    S.range=Math.max(0,S.range-ve*dt);           // drive through, gap keeps closing
+    S.scroll=(S.scroll+ve*dt*9)%2000;
+    if(S.range<=3.5)reset();                      // exited -> approach the next one
+    return;
+  }
+
   const dSensor=sm,threat=det.detected&&inLane&&dSensor!=null&&dSensor<dReq&&!v.avoided;
   if(threat&&!S.committed){
     if(dSensor>=dMech+BUFFER&&S.speedDiff>DV_THR){S.decision="AEB";v.braking=true;v.brakeTarget=Math.max(0,S.target.speed);}
@@ -335,13 +352,23 @@ function drawObstacle(x,y,sc){const s=sc; // traffic cone + barrier
   sctx.fillStyle="#fff";rr(x-6*s,y-6*s,12*s,4*s,1);sctx.fill();
   sctx.strokeStyle=S.detected?"#39d98a":"#ff4d6d";sctx.lineWidth=2.5;sctx.strokeRect(x-24*s,y-24*s,48*s,40*s);}
 
-function drawRound(x,y,sc){const s=sc,r=26*s; // roundabout ring + arrows
-  sctx.strokeStyle=S.detected?"#39d98a":"#8aa0b5";sctx.lineWidth=6*s;sctx.beginPath();sctx.arc(x,y,r,0,7);sctx.stroke();
-  sctx.fillStyle="#1c2634";sctx.beginPath();sctx.arc(x,y,r*0.45,0,7);sctx.fill();
-  sctx.strokeStyle="#ffb020";sctx.lineWidth=3*s;for(let a=0;a<4;a++){const A=S.t*1.2+a*Math.PI/2;
-    sctx.beginPath();sctx.arc(x,y,r*0.72,A,A+0.7);sctx.stroke();
-    const ex=x+Math.cos(A+0.7)*r*0.72,ey2=y+Math.sin(A+0.7)*r*0.72;
-    sctx.beginPath();sctx.moveTo(ex,ey2);sctx.lineTo(ex-4*s*Math.cos(A+0.3),ey2-4*s*Math.sin(A+0.3));sctx.stroke();}}
+function drawRound(x,y,sc){const s=sc,r=Math.max(30,52*s); // large roundabout
+  const cx=(SW/2),ry=r*0.62;                            // squashed ellipse for perspective
+  // outer ring road (asphalt band)
+  sctx.lineWidth=r*0.5;sctx.strokeStyle="#1a212c";sctx.beginPath();sctx.ellipse(cx,y,r,ry,0,0,7);sctx.stroke();
+  // ring edges (neon)
+  sctx.lineWidth=2.5;sctx.strokeStyle=S.detected?"rgba(57,217,138,.8)":"rgba(0,224,255,.5)";
+  sctx.beginPath();sctx.ellipse(cx,y,r*1.24,ry*1.24,0,0,7);sctx.stroke();
+  sctx.beginPath();sctx.ellipse(cx,y,r*0.76,ry*0.76,0,0,7);sctx.stroke();
+  // grassy central island
+  sctx.fillStyle="#16321f";sctx.beginPath();sctx.ellipse(cx,y,r*0.66,ry*0.66,0,0,7);sctx.fill();
+  sctx.fillStyle="#0e2016";for(let i=0;i<5;i++){const a=i*1.3;sctx.beginPath();
+    sctx.arc(cx+Math.cos(a)*r*0.3,y+Math.sin(a)*ry*0.3,r*0.06,0,7);sctx.fill();}
+  // circulating direction arrows
+  sctx.strokeStyle="#ffb020";sctx.lineWidth=3;for(let a=0;a<6;a++){const A=S.t*1.0+a*Math.PI/3;
+    sctx.beginPath();sctx.ellipse(cx,y,r,ry,0,A,A+0.5);sctx.stroke();
+    const ex=cx+Math.cos(A+0.5)*r,ey2=y+Math.sin(A+0.5)*ry;
+    sctx.beginPath();sctx.moveTo(ex,ey2);sctx.lineTo(ex-6*Math.cos(A+0.2),ey2-6*Math.sin(A+0.2));sctx.stroke();}}
 
 function drawBeam(){if(S.blinded)return;const yF=r2y(S.range),fx=wX(S.ego.x,EY()),fy=EY()-40,egoLat=S.ego.x*LANE_W,col=S.detected?"57,217,138":"255,77,109";
   const pL=wX((egoLat+S.range*Math.tan(-FOV))/LANE_W,yF),pR=wX((egoLat+S.range*Math.tan(FOV))/LANE_W,yF);
@@ -368,7 +395,8 @@ function drawHUD(){sctx.font="bold 17px Consolas,monospace";sctx.textAlign="left
   if(S.blinded){msg="SENSOR BLINDED — DISENGAGING AUTOPILOT";col="#ffb020";}
   else if(S.decision==="AEB"&&S.ego.braking){msg="EMERGENCY BRAKING ENGAGED";col="#ff4d6d";}
   else if(S.decision==="LANE MERGE"&&S.ego.merging){msg="COLLISION AVOIDANCE: LANE CHANGE";col="#39d98a";}
-  else if(S.decision==="FOLLOW"){msg=S.target.type==="roundabout"?"CURVE SPEED CONTROL: ENTERING ROUNDABOUT":"ADAPTIVE CRUISE: MATCHING LEAD SPEED";col="#ffb020";}
+  else if(S.decision==="FOLLOW"){msg="ADAPTIVE CRUISE: MATCHING LEAD SPEED";col="#ffb020";}
+  else if(S.decision==="SLOWING"||S.decision==="ROUNDABOUT"){msg="CURVE SPEED CONTROL: DRIVING THROUGH ROUNDABOUT";col="#ffb020";}
   if(msg){const a=0.55+0.45*Math.abs(Math.sin(S.t*4));sctx.textAlign="center";let fs=25;
     sctx.font="bold "+fs+"px system-ui,sans-serif";let w=sctx.measureText(msg).width,av=SW-48;if(w>av){fs=Math.floor(fs*av/w);sctx.font="bold "+fs+"px system-ui,sans-serif";}
     sctx.fillStyle="rgba(0,0,0,.55)";sctx.fillRect(0,SH/2-fs,SW,fs*2);sctx.globalAlpha=a;sctx.fillStyle=col;sctx.shadowColor=col;sctx.shadowBlur=18;
@@ -395,7 +423,8 @@ function drawDOM(){$("m-true").textContent=S.range.toFixed(1)+" m";$("m-sm").tex
   $("m-snr").textContent=(S.snr>0?(20*Math.log10(S.snr)).toFixed(0):"-∞")+" dB";$("m-prec").textContent=S.prec>0?S.prec.toExponential(1):"0";
   $("tgt-label").textContent=S.target.baseLabel;$("closing").textContent="closing Δv: "+(S.speedDiff>=0?"+":"")+S.speedDiff.toFixed(0)+" km/h";
   $("closing").style.color=S.speedDiff>DV_THR?"var(--red)":"var(--green)";
-  const dec=$("dec"),c={CRUISE:"--cyan",AEB:"--red","LANE MERGE":"--green",FOLLOW:"--amber"}[S.decision]||"--cyan";
+  const dec=$("dec"),c={CRUISE:"--cyan",AEB:"--red","LANE MERGE":"--green",FOLLOW:"--amber",
+    SLOWING:"--amber",ROUNDABOUT:"--amber"}[S.decision]||"--cyan";
   dec.textContent=S.decision;dec.style.color=`var(${c})`;dec.style.borderColor=`var(${c})`;}
 
 // ===== EQUATION REGISTRY (per-term explanations) =====
