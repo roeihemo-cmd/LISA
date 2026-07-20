@@ -21,15 +21,24 @@
   .brand{font-family:var(--mono);font-weight:700;color:var(--cyan);font-size:1.0rem;letter-spacing:.03em}
   .brand small{display:block;color:var(--dim);font-weight:400;font-size:.64rem;letter-spacing:.18em;text-transform:uppercase;margin-top:3px}
   .sec{font-family:var(--mono);font-size:.66rem;color:var(--dim);letter-spacing:.14em;text-transform:uppercase}
-  /* scenario gallery */
-  .gallery{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-  .scard{background:#0b1017;border:1px solid var(--edge);border-radius:10px;padding:9px 8px;cursor:pointer;
-    display:flex;flex-direction:column;gap:5px;transition:border-color .15s,transform .1s}
-  .scard:hover{transform:translateY(-1px)}
-  .scard.on{border-color:var(--cyan);box-shadow:0 0 0 1px var(--cyan),0 0 14px rgba(0,224,255,.25)}
-  .scard .ic{width:100%;height:40px;border-radius:6px;background:#111a25;display:block}
-  .scard .nm{font-size:.72rem;font-weight:600;line-height:1.15}
-  .scard .ds{font-size:.62rem;color:var(--dim);line-height:1.2}
+  /* scenario picker */
+  .scenbtn{width:100%;background:#0b1017;border:1px solid var(--cyan);border-radius:10px;padding:10px 12px;
+    cursor:pointer;color:var(--ink);text-align:left;display:flex;align-items:center;gap:10px;
+    box-shadow:0 0 12px rgba(0,224,255,.18)}
+  .scenbtn .em{font-size:1.3rem}
+  .scenbtn .nm{font-weight:700;font-size:.9rem}
+  .scenbtn .ds{font-size:.66rem;color:var(--dim)}
+  .scenbtn .go{margin-left:auto;color:var(--cyan);font-size:.68rem;font-family:var(--mono)}
+  .pickgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:560px){.pickgrid{grid-template-columns:1fr}}
+  .pcard{background:#0a0f16;border:1px solid var(--edge);border-radius:12px;overflow:hidden;cursor:pointer;
+    display:flex;flex-direction:column;transition:border-color .15s,transform .1s}
+  .pcard:hover{transform:translateY(-2px);border-color:var(--cyan)}
+  .pcard.on{border-color:var(--cyan);box-shadow:0 0 0 1px var(--cyan),0 0 16px rgba(0,224,255,.3)}
+  .pcard svg{display:block;width:100%;height:auto;background:#0a0f16}
+  .pcard .body{padding:9px 11px;display:flex;flex-direction:column;gap:4px}
+  .pcard .nm{font-weight:700;font-size:.86rem}
+  .pcard .ch{font-size:.72rem;color:var(--dim);line-height:1.4}
   select{width:100%;background:#0b1017;color:var(--ink);border:1px solid var(--edge);
     border-radius:8px;padding:8px 10px;font-family:var(--sans);font-size:.84rem;cursor:pointer}
   .ctl{display:flex;flex-direction:column;gap:5px}
@@ -86,7 +95,7 @@
   <div class="col panel">
     <div class="brand">LiDAR · ADAS<small>Perception &amp; Control Bench</small></div>
     <div class="sec">Scenario</div>
-    <div class="gallery" id="gallery"></div>
+    <button class="scenbtn" id="scenBtn"></button>
 
     <div><div class="sec" style="margin-bottom:5px">Host Vehicle</div>
       <select id="vehicle">
@@ -147,17 +156,26 @@ const VEHICLES={
 };
 const SCEN={
   cutin:{type:"car",beh:"cutin",fog:0.02,rho:0.6,v0:60,lat0:1.0,label:"CUT-IN VEHICLE",
-    name:"Cut-In",desc:"רכב נכנס לנתיב",icon:"cutin",eqs:["ttc","braking"]},
+    name:"Cut-In",desc:"רכב נכנס לנתיב",icon:"cutin",eqs:["ttc","braking"],
+    challenge:"רכב מהנתיב הסמוך חותך פנימה לפנינו — המערכת חייבת לזהות ולהאט/לעקוב מיד."},
   hardbrake:{type:"car",beh:"brake",fog:0.02,rho:0.6,v0:80,lat0:0,label:"HARD-BRAKING LEAD",
-    name:"Hard Brake",desc:"בלימת פתע",icon:"brake",eqs:["braking","ttc"]},
-  pedestrian:{type:"ped",beh:"cross",fog:0.03,rho:0.1,v0:0,lat0:-1.5,label:"PEDESTRIAN ρ=0.1",
-    name:"Pedestrian",desc:"חציית הולך רגל",icon:"ped",eqs:["lidar","braking"]},
+    name:"Hard Brake",desc:"בלימת פתע",icon:"brake",eqs:["braking","ttc"],
+    challenge:"הרכב שלפנינו בולם פתאום בעוצמה — בלימת חירום (AEB) עד עצירה מלאה."},
+  pedestrian:{type:"ped",beh:"cross",fog:0.03,rho:0.1,v0:0,lat0:-1.7,label:"PEDESTRIAN ρ=0.1",
+    name:"Pedestrian",desc:"חציית הולך רגל",icon:"ped",eqs:["lidar","braking"],
+    challenge:"הולך רגל חוצה בקו ישר. ρ=0.1 מקשה על הזיהוי (SNR נמוך) — נדרשת עצירה."},
+  child:{type:"child",beh:"chase",fog:0.02,rho:0.12,v0:0,lat0:-1.7,label:"CHILD CHASING BALL",
+    name:"Child + Ball",desc:"ילד רץ לכביש",icon:"child",eqs:["lidar","ttc","braking"],
+    challenge:"ילד קטן (RCS נמוך) רץ מהר אחרי כדור לתוך הכביש — זיהוי קשה, TTC קצר מאוד."},
   fog:{type:"car",beh:"slow",fog:0.22,rho:0.6,v0:40,lat0:0,label:"LEAD IN HEAVY FOG",
-    name:"Heavy Fog",desc:"ראות נמוכה",icon:"fog",eqs:["beer","lidar","braking"]},
+    name:"Heavy Fog",desc:"ראות נמוכה",icon:"fog",eqs:["beer","lidar","braking"],
+    challenge:"ערפל כבד מנחית את אלומת הלייזר (Beer-Lambert) — המטרה מזוהה רק מקרוב מאוד."},
   static:{type:"obstacle",beh:"static",fog:0.02,rho:0.4,v0:0,lat0:0,label:"STATIC OBSTACLE",
-    name:"Static Obstacle",desc:"מכשול נייח",icon:"obstacle",eqs:["matched","braking"]},
+    name:"Static Obstacle",desc:"מכשול נייח",icon:"obstacle",eqs:["matched","braking"],
+    challenge:"מכשול נייח פתאומי (מחסום/קונוס). הרכב עוצר או עוקף לפי מרחק הבלימה."},
   roundabout:{type:"roundabout",beh:"curve",fog:0.02,rho:0.6,v0:0,lat0:0,label:"ROUNDABOUT ENTRY",
-    name:"Roundabout",desc:"כיכר תנועה",icon:"round",eqs:["curve","braking"]},
+    name:"Roundabout",desc:"כיכר תנועה",icon:"round",eqs:["curve","braking"],
+    challenge:"כניסה לכיכר — יש להאט למהירות בטוחה V_max=√(μgr) לפי אחיזת הרכב."},
 };
 
 // ===== LiDAR (unchanged) =====
@@ -186,11 +204,16 @@ class Ego{constructor(sp){this.speed=sp;this.cruise=sp;this.x=0;this.tx=0;this.b
     else if(!this.merging&&this.speed<this.cruise)this.speed=Math.min(this.cruise,this.speed+accel*dt);
     else if(!this.merging&&this.speed>this.cruise)this.speed=Math.max(this.cruise,this.speed-decel*dt);
     this.x+=(this.tx-this.x)*Math.min(1,3.5*dt);if(this.merging&&Math.abs(this.tx-this.x)<0.03)this.avoided=true;}}
-class Target{constructor(s,vsafe){this.type=s.type;this.beh=s.beh;this.speed=s.beh==="curve"?vsafe:s.v0;this.lat=s.lat0;this.timer=0;this.braking=false;this.baseLabel=s.label;}
+class Target{constructor(s,vsafe){this.type=s.type;this.beh=s.beh;this.speed=s.beh==="curve"?vsafe:s.v0;
+    this.lat=s.lat0;this.timer=0;this.braking=false;this.baseLabel=s.label;this.dir=1;this.ballLat=s.lat0+0.6;}
   update(dt){this.timer+=dt;
     if(this.beh==="brake"&&this.timer>=3){this.braking=true;this.speed=Math.max(0,this.speed-LEAD_HARD_DECEL*dt);}
     else if(this.beh==="cutin"){this.lat+=(0-this.lat)*Math.min(1,0.4*dt);if(this.timer>2)this.lat=Math.max(0,this.lat-0.35*dt);}
-    else if(this.beh==="cross"){this.lat+=0.55*dt;if(this.lat>1.6)this.lat=-1.6;}}
+    else if(this.beh==="cross"){                 // straight-line crossing, one clean direction
+      this.lat+=this.dir*0.9*dt;if(this.lat>1.8){this.lat=1.8;this.dir=-1;}if(this.lat<-1.8){this.lat=-1.8;this.dir=1;}}
+    else if(this.beh==="chase"){                 // child runs straight; ball rolls ahead
+      this.lat+=this.dir*1.35*dt;this.ballLat=this.lat+this.dir*0.7;
+      if(this.lat>1.8){this.lat=1.8;this.dir=-1;}if(this.lat<-1.8){this.lat=-1.8;this.dir=1;}}}
   inLane(){return Math.abs(this.lat)<0.6;}}
 
 // ===== STATE =====
@@ -255,7 +278,8 @@ function drawScene(){sctx.clearRect(0,0,SW,SH);sctx.fillStyle="#070a10";sctx.fil
   drawTarget();drawBeam();drawHost();drawFog();drawHUD();}
 
 function drawTarget(){const yF=r2y(S.range),sc=0.25+0.9*(yF-HZ())/(EY()-HZ()),sx=wX(S.target.lat,yF);
-  if(S.target.type==="ped")drawPed(sx,yF,sc);
+  if(S.target.type==="ped")drawPed(sx,yF,sc,S.target.dir,false);
+  else if(S.target.type==="child"){drawBall(wX(S.target.ballLat,yF),yF+6*sc,sc);drawPed(sx,yF,sc,S.target.dir,true);}
   else if(S.target.type==="obstacle")drawObstacle(sx,yF,sc);
   else if(S.target.type==="roundabout")drawRound(sx,yF,sc);
   else drawVehicle(sx,yF,sc,{w:46,h:80,body:S.detected?"#7a3038":"#39414d",cab:"#0b1420",trim:"#39d98a",kind:"sedan"},S.target.braking,false);
@@ -287,11 +311,25 @@ function drawVehicle(x,y,sc,shp,brake,isHost){const w=shp.w*sc,h=shp.h*sc;
   const on=brake&&(!isHost||Math.sin(S.t*12)>-0.3);
   for(const dx of[-w/2+8*sc,w/2-8*sc]){sctx.fillStyle=on?"#ff2d3a":"#5a1420";if(on){sctx.shadowColor="#ff2d3a";sctx.shadowBlur=15*sc;}rr(x+dx-4*sc,y+h/2-8*sc,8*sc,5*sc,2*sc);sctx.fill();sctx.shadowBlur=0;}}
 
-function drawPed(x,y,sc){const s=sc*1.15,col=S.detected?"#39d98a":"#c9d2de";sctx.strokeStyle=col;sctx.fillStyle=col;sctx.lineWidth=3.2*s;sctx.lineCap="round";
-  sctx.beginPath();sctx.arc(x,y-26*s,6*s,0,7);sctx.fill();sctx.beginPath();sctx.moveTo(x,y-20*s);sctx.lineTo(x,y-2*s);sctx.stroke();
-  const sw=Math.sin(S.t*6)*5*s;sctx.beginPath();sctx.moveTo(x,y-16*s);sctx.lineTo(x-8*s,y-8*s+sw);sctx.moveTo(x,y-16*s);sctx.lineTo(x+8*s,y-8*s-sw);sctx.stroke();
-  sctx.beginPath();sctx.moveTo(x,y-2*s);sctx.lineTo(x-7*s,y+14*s-sw);sctx.moveTo(x,y-2*s);sctx.lineTo(x+7*s,y+14*s+sw);sctx.stroke();
-  if(S.detected){sctx.strokeStyle="rgba(57,217,138,.5)";sctx.lineWidth=2;sctx.strokeRect(x-13*s,y-34*s,26*s,52*s);}}
+function drawPed(x,y,sc,dir,isChild){const s=sc*(isChild?0.8:1.2),col=S.detected?"#39d98a":"#c9d2de";
+  const d=dir||1;                                  // facing direction of travel (straight crossing)
+  sctx.strokeStyle=col;sctx.fillStyle=col;sctx.lineWidth=(isChild?2.6:3.4)*s;sctx.lineCap="round";
+  const hy=y-26*s,tuck=y-2*s;                       // head, hip
+  sctx.beginPath();sctx.arc(x,hy,6*s,0,7);sctx.fill();          // head
+  sctx.beginPath();sctx.moveTo(x,hy+6*s);sctx.lineTo(x,tuck);sctx.stroke();  // torso (upright, straight)
+  const sw=Math.sin(S.t*(isChild?9:5))*6*s;          // limb swing along travel axis (horizontal)
+  // arms
+  sctx.beginPath();sctx.moveTo(x,y-16*s);sctx.lineTo(x+d*sw,y-9*s);sctx.moveTo(x,y-16*s);sctx.lineTo(x-d*sw*0.6,y-9*s);sctx.stroke();
+  // legs stride along the crossing direction (reads as walking/running straight)
+  sctx.beginPath();sctx.moveTo(x,tuck);sctx.lineTo(x+d*(6*s+sw),y+14*s);sctx.moveTo(x,tuck);sctx.lineTo(x-d*(6*s-sw),y+14*s);sctx.stroke();
+  // motion arrow showing straight-line path
+  sctx.strokeStyle="rgba(255,180,32,.7)";sctx.lineWidth=2*s;
+  sctx.beginPath();sctx.moveTo(x+d*11*s,y-6*s);sctx.lineTo(x+d*20*s,y-6*s);
+  sctx.lineTo(x+d*16*s,y-9*s);sctx.moveTo(x+d*20*s,y-6*s);sctx.lineTo(x+d*16*s,y-3*s);sctx.stroke();
+  if(S.detected){sctx.strokeStyle="rgba(57,217,138,.5)";sctx.lineWidth=2;sctx.strokeRect(x-12*s,y-34*s,24*s,52*s);}}
+function drawBall(x,y,sc){const r=6*sc;sctx.fillStyle="#ff6a2a";sctx.beginPath();sctx.arc(x,y,r,0,7);sctx.fill();
+  sctx.strokeStyle="#7a2d10";sctx.lineWidth=1.4*sc;sctx.beginPath();sctx.arc(x,y,r,0,7);sctx.stroke();
+  sctx.beginPath();sctx.moveTo(x-r,y);sctx.lineTo(x+r,y);sctx.moveTo(x,y-r);sctx.lineTo(x,y+r);sctx.stroke();}
 
 function drawObstacle(x,y,sc){const s=sc; // traffic cone + barrier
   sctx.fillStyle="rgba(0,0,0,.4)";sctx.beginPath();sctx.ellipse(x,y+14*s,20*s,5*s,0,0,7);sctx.fill();
@@ -430,19 +468,44 @@ function specSheet(){const VH=veh(),v=S.ego?S.ego.speed:S.speed,ve=v/3.6,lat=T_D
     <tr><td>Safe roundabout speed</td><td>${curveVsafe().toFixed(0)} km/h</td></tr></table></div>
     <div class="note">💡 Double-click הרכב מכפיל את המהירות (×2). שים לב איך מרחק העצירה גדל ריבועית.</div>`;}
 
-// ===== SCENARIO GALLERY =====
-function scenIcon(kind){const c={cutin:"#4dabf7",brake:"#ff4d6d",ped:"#39d98a",fog:"#8aa0b5",obstacle:"#e8a020",round:"#ffb020"}[kind];
-  const g={cutin:"↰🚗",brake:"🛑",ped:"🚶",fog:"🌫️",obstacle:"⚠️",round:"🔄"}[kind];
-  return `<svg class="ic" viewBox="0 0 100 40"><rect width="100" height="40" fill="#0f1620"/>
-    <rect x="20" y="0" width="60" height="40" fill="#151d28"/>
-    <line x1="50" y1="0" x2="50" y2="40" stroke="#2a3646" stroke-dasharray="4 4"/>
-    <text x="50" y="27" font-size="20" text-anchor="middle">${g}</text>
-    <rect x="20" y="0" width="60" height="40" fill="none" stroke="${c}" stroke-opacity=".4"/></svg>`;}
-function buildGallery(){const g=$("gallery");g.innerHTML="";
-  Object.entries(SCEN).forEach(([key,sc])=>{const d=document.createElement("div");d.className="scard"+(key===S.scenKey?" on":"");d.dataset.scen=key;
-    d.innerHTML=scenIcon(sc.icon)+`<div class="nm">${sc.name}</div><div class="ds">${sc.desc}</div>`;
-    d.addEventListener("click",()=>{S.scenKey=key;document.querySelectorAll(".scard").forEach(c=>c.classList.toggle("on",c.dataset.scen===key));applyScenario();reset();});
-    g.appendChild(d);});}
+// ===== SCENARIO PICKER (window with preview screenshots) =====
+const SC_EMOJI={cutin:"↩️",brake:"🛑",ped:"🚶",child:"🧒",fog:"🌫️",obstacle:"⚠️",round:"🔄"};
+function scenPreview(key){const sc=SCEN[key];const road=`<polygon points="72,14 148,14 206,116 14,116" fill="#141a24"/>
+   <line x1="110" y1="14" x2="110" y2="116" stroke="#2a3646" stroke-width="2" stroke-dasharray="5 6"/>
+   <line x1="72" y1="14" x2="14" y2="116" stroke="#00e0ff" stroke-opacity=".4" stroke-width="2"/>
+   <line x1="148" y1="14" x2="206" y2="116" stroke="#00e0ff" stroke-opacity=".4" stroke-width="2"/>`;
+  const ego=`<rect x="96" y="94" width="28" height="22" rx="5" fill="#2c3850" stroke="#00e0ff" stroke-width="1.5"/>
+   <circle cx="103" cy="94" r="2.5" fill="#fff5c0"/><circle cx="117" cy="94" r="2.5" fill="#fff5c0"/>`;
+  let el="",act="",ac="#39d98a";
+  if(key==="cutin"){el=`<rect x="150" y="48" width="22" height="16" rx="4" fill="#7a3038" stroke="#39d98a"/>
+    <path d="M148 56 L120 60" stroke="#ffb020" stroke-width="2" fill="none"/><path d="M126 57 L120 60 L126 63" stroke="#ffb020" stroke-width="2" fill="none"/>
+    <rect x="100" y="52" width="20" height="15" rx="4" fill="#39414d"/>`;act="→ FOLLOW";ac="#ffb020";}
+  else if(key==="brake"){el=`<rect x="99" y="46" width="22" height="17" rx="4" fill="#7a3038" stroke="#39d98a"/>
+    <circle cx="103" cy="62" r="2.6" fill="#ff2d3a"/><circle cx="117" cy="62" r="2.6" fill="#ff2d3a"/>`;act="🚨 AEB STOP";ac="#ff4d6d";}
+  else if(key==="ped"||key==="child"){const sm=key==="child"?0.8:1;el=`<g stroke="#39d98a" stroke-width="${2.6*sm}" fill="#39d98a" stroke-linecap="round">
+    <circle cx="102" cy="${48}" r="${4*sm}"/><line x1="102" y1="${52}" x2="102" y2="${64}"/>
+    <line x1="102" y1="56" x2="108" y2="60"/><line x1="102" y1="56" x2="97" y2="60"/>
+    <line x1="102" y1="64" x2="108" y2="72"/><line x1="102" y1="64" x2="97" y2="72"/></g>
+    <path d="M108 50 L122 50" stroke="#ffb020" stroke-width="2"/><path d="M118 47 L122 50 L118 53" stroke="#ffb020" stroke-width="2" fill="none"/>
+    ${key==="child"?'<circle cx="124" cy="66" r="4" fill="#ff6a2a"/>':''}`;act=key==="child"?"🚨 AEB / EVADE":"🚨 AEB STOP";ac="#ff4d6d";}
+  else if(key==="fog"){el=`<rect x="99" y="50" width="22" height="16" rx="4" fill="#39414d" stroke="#8aa0b5"/>
+    <rect x="14" y="14" width="192" height="102" fill="#c8ced6" opacity=".38"/>`;act="⚠️ SENSOR BLIND";ac="#ffb020";}
+  else if(key==="obstacle"){el=`<polygon points="110,44 102,66 118,66" fill="#ff6a2a"/><rect x="104" y="54" width="12" height="3" fill="#fff"/>
+    <rect x="92" y="66" width="36" height="7" rx="2" fill="#e8a020"/>`;act="STOP / MERGE";ac="#e8a020";}
+  else if(key==="round"){el=`<circle cx="110" cy="52" r="17" fill="none" stroke="#ffb020" stroke-width="4"/>
+    <circle cx="110" cy="52" r="7" fill="#1c2634"/>`;act="SLOW → Vmax";ac="#ffb020";}
+  return `<svg viewBox="0 0 220 130">${road}${el}${ego}
+    <rect x="7" y="7" width="${act.length*6.2+14}" height="17" rx="8" fill="#0b1119" stroke="${ac}" stroke-opacity=".6"/>
+    <text x="15" y="19" font-size="10" fill="${ac}" font-family="monospace">${act}</text></svg>`;}
+function updateScenBtn(){const sc=SCEN[S.scenKey];$("scenBtn").innerHTML=
+  `<span class="em">${SC_EMOJI[sc.icon]}</span><span><span class="nm">${sc.name}</span><br><span class="ds">${sc.desc}</span></span><span class="go">CHANGE ▸</span>`;}
+function openScenarioPicker(){let cards="";
+  Object.entries(SCEN).forEach(([key,sc])=>{cards+=`<div class="pcard${key===S.scenKey?" on":""}" data-pick="${key}">
+    ${scenPreview(key)}<div class="body"><div class="nm">${SC_EMOJI[sc.icon]} ${sc.name}</div><div class="ch">${sc.challenge}</div></div></div>`;});
+  openModal(`<h3>Choose a Scenario</h3><div class="sub">כל תרחיש מציג את המצב, האתגר, והתגובה הצפויה של המערכת.</div><div class="pickgrid">${cards}</div>`);
+  modal.querySelectorAll(".pcard").forEach(c=>c.addEventListener("click",()=>{
+    S.scenKey=c.dataset.pick;applyScenario();reset();updateScenBtn();closeModal();}));}
+$("scenBtn").addEventListener("click",openScenarioPicker);
 
 // ===== CONTROLS + MOUSE =====
 function updateLabels(){$("lv-speed").textContent=S.speed.toFixed(0)+" km/h";$("lv-fog").textContent=(+$("s-fog").value).toFixed(3);
@@ -469,7 +532,7 @@ window.addEventListener("resize",()=>{fitScene();fitGraphs();});
 
 // ===== LOOP =====
 let last=0;function frame(ts){const dt=Math.min((ts-last)/1000||0.016,0.05);last=ts;update(dt);drawScene();drawGraphs();drawDOM();requestAnimationFrame(frame);}
-buildGallery();applyScenario();reset();fitScene();fitGraphs();updateLabels();requestAnimationFrame(frame);
+updateScenBtn();applyScenario();reset();fitScene();fitGraphs();updateLabels();requestAnimationFrame(frame);
 </script>
 </body>
 </html>
