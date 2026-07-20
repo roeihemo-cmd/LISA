@@ -5,533 +5,481 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 </head>
 <body>
-<title>LiDAR ADAS Simulator — Web</title>
+<title>LiDAR ADAS Simulator — Pro</title>
 <style>
   :root{
-    --ground:#070a10; --panel:#0e131c; --panel2:#0b0f17; --edge:#1c2634;
-    --ink:#cdd6e3; --dim:#7d8798; --faint:#54607200; --faint:#556072;
-    --cyan:#00e0ff; --green:#39d98a; --amber:#ffb020; --red:#ff4d6d;
-    --chip:#0a1119; --chipedge:#1a2534;
-    --mono:"SFMono-Regular",Consolas,Menlo,monospace;
-    --sans:system-ui,"Segoe UI",Roboto,sans-serif;
+    --ground:#070a10;--panel:#0e131c;--edge:#1c2634;--ink:#cdd6e3;--dim:#7d8798;
+    --faint:#556072;--cyan:#00e0ff;--green:#39d98a;--amber:#ffb020;--red:#ff4d6d;
+    --chip:#0a1119;--chipedge:#1a2534;
+    --mono:"SFMono-Regular",Consolas,Menlo,monospace;--sans:system-ui,"Segoe UI",Roboto,sans-serif;
   }
   *{box-sizing:border-box}
-  html,body{margin:0;height:100%;background:var(--ground);color:var(--ink);
-    font-family:var(--sans);overflow:hidden}
-  .app{display:grid;grid-template-columns:280px 1fr 330px;height:100vh;min-height:0}
+  html,body{margin:0;height:100%;background:var(--ground);color:var(--ink);font-family:var(--sans);overflow:hidden}
+  .app{display:grid;grid-template-columns:296px 1fr 340px;height:100vh;min-height:0}
   .col{min-height:0;min-width:0;overflow:hidden}
-
-  /* panel */
-  .panel{background:var(--panel);border-right:1px solid var(--edge);
-    padding:18px 20px;display:flex;flex-direction:column;gap:16px;overflow-y:auto}
-  .brand{font-family:var(--mono);font-weight:700;color:var(--cyan);
-    letter-spacing:.04em;font-size:1.05rem}
-  .brand small{display:block;color:var(--dim);font-weight:400;font-size:.7rem;
-    letter-spacing:.18em;text-transform:uppercase;margin-top:3px}
-  .ctl{display:flex;flex-direction:column;gap:6px}
-  .ctl .lab{display:flex;justify-content:space-between;font-size:.78rem;
-    color:var(--dim);font-family:var(--mono)}
-  .ctl .lab b{color:var(--cyan);font-weight:600}
-  input[type=range]{-webkit-appearance:none;appearance:none;height:5px;
-    background:#22303f;border-radius:3px;outline:none}
-  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;
-    height:16px;border-radius:50%;background:#0b1017;border:2px solid var(--cyan);
-    cursor:pointer;box-shadow:0 0 6px rgba(0,224,255,.5)}
-  input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;
-    background:#0b1017;border:2px solid var(--cyan);cursor:pointer}
-  .block{border-top:1px solid var(--edge);padding-top:14px;display:flex;
-    flex-direction:column;gap:8px}
-  .kv{font-family:var(--mono);font-size:.72rem;color:var(--dim);letter-spacing:.1em}
-  .tgt{font-size:.95rem;color:var(--amber);font-weight:600}
-  .closing{font-family:var(--mono);font-size:.82rem}
-  .decbox{border:2px solid var(--cyan);border-radius:10px;padding:12px;
-    text-align:center;font-weight:700;letter-spacing:.05em;font-size:1.05rem;
-    background:#0b1017}
-  .hint{margin-top:auto;font-family:var(--mono);font-size:.68rem;color:var(--faint);
-    line-height:1.7}
-  .hint kbd{background:#161f2b;border:1px solid var(--edge);border-radius:4px;
-    padding:1px 5px;color:var(--cyan)}
-  button.eq{background:#0b1017;border:1px solid var(--edge);color:var(--dim);
-    border-radius:8px;padding:8px;font-family:var(--mono);font-size:.75rem;
-    cursor:pointer}
-  button.eq.on{border-color:var(--cyan);color:var(--cyan)}
-
-  /* scene */
-  .scene{position:relative}
-  #scene{display:block;width:100%;height:100%}
-
-  /* analytics */
-  .ana{background:var(--panel);border-left:1px solid var(--edge);padding:16px 18px;
-    display:flex;flex-direction:column;gap:12px;overflow-y:auto}
-  .ana h2{font-family:var(--mono);font-size:.8rem;letter-spacing:.16em;
-    text-transform:uppercase;color:var(--cyan);margin:0}
-  .metrics{display:flex;flex-direction:column;gap:9px}
+  .panel{background:var(--panel);border-right:1px solid var(--edge);padding:16px 18px;
+    display:flex;flex-direction:column;gap:14px;overflow-y:auto}
+  .brand{font-family:var(--mono);font-weight:700;color:var(--cyan);font-size:1.02rem;letter-spacing:.03em}
+  .brand small{display:block;color:var(--dim);font-weight:400;font-size:.66rem;letter-spacing:.18em;text-transform:uppercase;margin-top:3px}
+  label.fld{font-family:var(--mono);font-size:.7rem;color:var(--dim);letter-spacing:.08em;
+    display:flex;align-items:center;justify-content:space-between;margin-bottom:5px}
+  .infobtn{cursor:pointer;color:#0b1017;background:var(--cyan);border-radius:50%;width:16px;height:16px;
+    font-size:.68rem;font-weight:700;display:inline-flex;align-items:center;justify-content:center;border:none;font-family:var(--sans)}
+  select,.selbox{width:100%;background:#0b1017;color:var(--ink);border:1px solid var(--edge);
+    border-radius:8px;padding:8px 10px;font-family:var(--sans);font-size:.86rem;cursor:pointer}
+  .ctl{display:flex;flex-direction:column;gap:5px}
+  .ctl .lab{display:flex;justify-content:space-between;font-size:.74rem;color:var(--dim);font-family:var(--mono)}
+  .ctl .lab b{color:var(--cyan)}
+  input[type=range]{-webkit-appearance:none;appearance:none;height:5px;background:#22303f;border-radius:3px;outline:none}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;
+    background:#0b1017;border:2px solid var(--cyan);cursor:pointer;box-shadow:0 0 6px rgba(0,224,255,.5)}
+  .block{border-top:1px solid var(--edge);padding-top:12px;display:flex;flex-direction:column;gap:7px}
+  .kv{font-family:var(--mono);font-size:.68rem;color:var(--dim);letter-spacing:.1em}
+  .tgt{font-size:.9rem;color:var(--amber);font-weight:600}
+  .closing{font-family:var(--mono);font-size:.8rem}
+  .decbox{border:2px solid var(--cyan);border-radius:10px;padding:11px;text-align:center;font-weight:700;
+    letter-spacing:.04em;font-size:1.02rem;background:#0b1017}
+  .hint{margin-top:auto;font-family:var(--mono);font-size:.66rem;color:var(--faint);line-height:1.7}
+  .hint kbd{background:#161f2b;border:1px solid var(--edge);border-radius:4px;padding:1px 5px;color:var(--cyan)}
+  .scene{position:relative}#scene{display:block;width:100%;height:100%;cursor:pointer}
+  .ana{background:var(--panel);border-left:1px solid var(--edge);padding:14px 16px;display:flex;flex-direction:column;gap:11px;overflow-y:auto}
+  .ana h2{font-family:var(--mono);font-size:.76rem;letter-spacing:.16em;text-transform:uppercase;color:var(--cyan);margin:0}
+  .metrics{display:grid;grid-template-columns:1fr 1fr;gap:9px}
   .m{display:flex;flex-direction:column;gap:2px}
-  .m .k{font-family:var(--mono);font-size:.66rem;letter-spacing:.1em;color:var(--dim)}
-  .m .v{font-family:var(--mono);font-size:1.15rem;font-weight:600;
-    font-variant-numeric:tabular-nums}
+  .m.wide{grid-column:1/3}
+  .m .k{font-family:var(--mono);font-size:.62rem;letter-spacing:.08em;color:var(--dim)}
+  .m .v{font-family:var(--mono);font-size:1.05rem;font-weight:600;font-variant-numeric:tabular-nums}
   #graphs{display:block;width:100%;border-radius:8px;background:#0a0f16}
-  .eqbox{border:1px solid var(--edge);border-radius:8px;padding:12px;
-    font-family:var(--mono);font-size:.72rem;color:var(--cyan);line-height:1.9;
-    background:#0a0f16}
-  .eqbox .t{color:var(--dim);letter-spacing:.14em;font-size:.64rem;
-    text-transform:uppercase;margin-bottom:6px}
+  /* modal */
+  .overlay{position:fixed;inset:0;background:rgba(3,5,9,.78);display:none;align-items:center;
+    justify-content:center;z-index:50;padding:24px;backdrop-filter:blur(3px)}
+  .overlay.show{display:flex}
+  .modal{background:#0d131d;border:1px solid var(--edge);border-radius:14px;max-width:640px;width:100%;
+    max-height:86vh;overflow-y:auto;padding:26px 28px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+  .modal h3{margin:0 0 4px;color:var(--cyan);font-size:1.15rem}
+  .modal .sub{color:var(--dim);font-size:.82rem;margin-bottom:18px}
+  .modal .eq{font-family:var(--mono);background:#0a1119;border:1px solid var(--chipedge);
+    border-left:3px solid var(--cyan);border-radius:8px;padding:12px 14px;margin:14px 0 10px;
+    font-size:1rem;overflow-x:auto;color:var(--ink)}
+  .modal dl{margin:0;display:flex;flex-direction:column;gap:9px}
+  .modal dt{font-family:var(--mono);color:var(--amber);font-size:.86rem;font-weight:600}
+  .modal dd{margin:2px 0 0;color:var(--ink);font-size:.9rem;line-height:1.55}
+  .modal .note{background:#0a1512;border:1px solid #17352a;border-radius:8px;padding:12px 14px;
+    margin-top:14px;color:var(--green);font-size:.88rem;line-height:1.6}
+  .modal .close{float:left;background:none;border:1px solid var(--edge);color:var(--dim);
+    border-radius:8px;padding:5px 12px;cursor:pointer;font-family:var(--mono);font-size:.8rem}
+  .spec table{width:100%;border-collapse:collapse;margin-top:6px;font-size:.9rem}
+  .spec td{padding:7px 4px;border-bottom:1px solid var(--edge);font-family:var(--mono)}
+  .spec td:first-child{color:var(--dim)} .spec td:last-child{text-align:right;color:var(--cyan);font-weight:600}
+  @media(max-width:900px){.app{grid-template-columns:1fr;grid-template-rows:auto 52vh auto}}
 </style>
 
 <div class="app">
-  <!-- ============ CONTROL PANEL ============ -->
+  <!-- ===== PANEL ===== -->
   <div class="col panel">
-    <div class="brand">LiDAR CONTROL<small>Sensor &amp; Environment</small></div>
+    <div class="brand">LiDAR · ADAS<small>Perception &amp; Control Bench</small></div>
+
+    <div>
+      <label class="fld">SCENARIO <button class="infobtn" data-info="scenario">i</button></label>
+      <select id="scenario">
+        <option value="cutin">① Cut-In / Lane Change</option>
+        <option value="hardbrake">② Hard Braking Target</option>
+        <option value="pedestrian">③ Pedestrian Crossing (ρ=0.1)</option>
+        <option value="fog">④ Heavy Fog &amp; Low Visibility</option>
+        <option value="static">⑤ Static Obstacle</option>
+      </select>
+    </div>
+
+    <div>
+      <label class="fld">HOST VEHICLE <button class="infobtn" data-info="vehicle">i</button></label>
+      <select id="vehicle">
+        <option value="tesla">Tesla Model 3 (μ=0.90)</option>
+        <option value="corolla">Toyota Corolla (μ=0.75)</option>
+        <option value="truck">Heavy Truck (μ=0.60)</option>
+      </select>
+    </div>
 
     <div class="ctl"><div class="lab"><span>Cruise Speed V</span><b id="lv-speed">90 km/h</b></div>
-      <input type="range" id="s-speed" min="0" max="140" step="1" value="90"></div>
+      <input type="range" id="s-speed" min="0" max="160" step="1" value="90"></div>
     <div class="ctl"><div class="lab"><span>Fog / Rain α</span><b id="lv-fog">0.020</b></div>
       <input type="range" id="s-fog" min="0" max="0.3" step="0.005" value="0.02"></div>
-    <div class="ctl"><div class="lab"><span>Transmit Power</span><b id="lv-ptx">1.00</b></div>
-      <input type="range" id="s-ptx" min="0.1" max="5" step="0.1" value="1"></div>
-    <div class="ctl"><div class="lab"><span>Reflectivity ρ</span><b id="lv-rho">0.30</b></div>
-      <input type="range" id="s-rho" min="0.02" max="1" step="0.02" value="0.3"></div>
+    <div class="ctl"><div class="lab"><span>Reflectivity ρ</span><b id="lv-rho">0.60</b></div>
+      <input type="range" id="s-rho" min="0.05" max="1" step="0.05" value="0.6"></div>
     <div class="ctl"><div class="lab"><span>Receiver Noise σ</span><b id="lv-noise">0.15</b></div>
       <input type="range" id="s-noise" min="0" max="0.5" step="0.01" value="0.15"></div>
 
     <div class="block">
-      <div class="kv" id="mode">TARGET MODE: RANDOM</div>
-      <div class="tgt" id="tgt-label">—</div>
+      <div class="kv">TARGET</div><div class="tgt" id="tgt-label">—</div>
       <div class="closing" id="closing">closing Δv: +0 km/h</div>
     </div>
     <div class="block">
-      <div class="kv">AUTONOMOUS DECISION</div>
+      <div class="kv">AUTONOMOUS DECISION <button class="infobtn" data-info="braking">i</button></div>
       <div class="decbox" id="dec">CRUISE</div>
     </div>
-    <button class="eq on" id="btn-eq">Show / Hide Equations · H</button>
     <div class="hint">
-      <kbd>SPACE</kbd> random scenario<br>
-      <kbd>1</kbd> static &nbsp;<kbd>2</kbd> 50 km/h &nbsp;<kbd>3</kbd> brake-threat<br>
-      <kbd>H</kbd> equations
+      <kbd>SPACE</kbd> restart · <kbd>Click</kbd> car spec · <kbd>2×Click</kbd> speed ×2<br>
+      Sliders &amp; menus update live · [i] = learn the math
     </div>
   </div>
 
-  <!-- ============ SCENE ============ -->
+  <!-- ===== SCENE ===== -->
   <div class="col scene"><canvas id="scene"></canvas></div>
 
-  <!-- ============ ANALYTICS ============ -->
+  <!-- ===== ANALYTICS ===== -->
   <div class="col ana">
     <h2>Analytics</h2>
     <div class="metrics">
       <div class="m"><span class="k">TRUE RANGE</span><span class="v" id="m-true">—</span></div>
-      <div class="m"><span class="k">RAW ESTIMATE (jittery)</span><span class="v" id="m-raw" style="color:var(--dim)">—</span></div>
-      <div class="m"><span class="k">SMOOTHED → AEB (MA8)</span><span class="v" id="m-sm" style="color:var(--green)">—</span></div>
-      <div class="m"><span class="k">STOP DIST · phys / safe-req</span><span class="v" id="m-stop" style="color:var(--amber)">—</span></div>
+      <div class="m"><span class="k">EST · MA8</span><span class="v" id="m-sm" style="color:var(--green)">—</span></div>
+      <div class="m"><span class="k">STOP DIST REQ</span><span class="v" id="m-req" style="color:var(--amber)">—</span></div>
+      <div class="m"><span class="k">TTC</span><span class="v" id="m-ttc">—</span></div>
       <div class="m"><span class="k">PEAK SNR</span><span class="v" id="m-snr">—</span></div>
+      <div class="m"><span class="k">P_rec (rel)</span><span class="v" id="m-prec">—</span></div>
     </div>
     <canvas id="graphs" height="300"></canvas>
-    <div class="eqbox" id="eqbox">
-      <div class="t">Model Equations</div>
-      τ = 2R / c<br>
-      P_rec = P_tx·D²/(4R²)·e^(−2αR)·ρ<br>
-      y(t) = r(t) ⋆ s(t)<br>
-      R̂ = c·τ̂ / 2<br>
-      D_brake = v²/(2a) + v·t_r + buffer
-    </div>
+    <div class="kv" style="display:flex;justify-content:space-between;align-items:center">
+      SIGNAL CHAIN <button class="infobtn" data-info="lidar">i</button></div>
   </div>
 </div>
 
+<!-- ===== MODAL ===== -->
+<div class="overlay" id="overlay"><div class="modal" id="modal"></div></div>
+
 <script>
 "use strict";
-// ===================== CONFIG / CONSTANTS =====================
-const MAXV = 120, START_RANGE = 110;
-const A_MAX = 6.5, A_COMFORT = 3.5, REACT_T = 0.8, BUFFER = 5.0, DV_THR = 15.0;
-const DECEL_KMH_S = A_MAX * 3.6;          // 23.4 km/h per second
-const LEAD_DECEL_KMH_S = 8.0 * 3.6;
-const N = 320;                            // signal samples
-const DET_FACTOR = 6.0;                   // SNR detection threshold
-const RX_GAIN = 2.5e8, DR = 0.05;
-const LANE_W = 3.5, TARGET_HALF = 1.4, FOV = 15*Math.PI/180, LINES = 41;
-const MA_WIN = 8;
+// ============ CONSTANTS (physics untouched: DSP, radar eq, Beer-Lambert) ============
+const MAXV=120,START_RANGE=110,G=9.81,BUFFER=5.0,DV_THR=15.0;
+const T_DSP=0.03, T_FILTER=0.13;            // sensor + moving-average latency
+const N=320, DET=6.0, RX_GAIN=2.5e8, DR=0.05;
+const LANE_W=3.5,TARGET_HALF=1.4,FOV=15*Math.PI/180,LINES=41,MA_WIN=8;
+const LEAD_HARD_DECEL=8.0*3.6;
 
-// ===================== SIGNAL / LiDAR =====================
-function gaussKernel(sigma){
-  const L = Math.max(5, Math.ceil(6*sigma)|1), c=(L-1)/2, k=new Float32Array(L);
-  let e=0; for(let i=0;i<L;i++){k[i]=Math.exp(-((i-c)**2)/(2*sigma*sigma)); e+=k[i]*k[i];}
-  const norm=Math.sqrt(e); return {k, c, norm, energy:Math.sqrt(e)};
-}
-function randn(){ // Box-Muller
-  let u=0,v=0; while(!u)u=Math.random(); while(!v)v=Math.random();
-  return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
-}
-const LiDAR = {
-  sigma:3, tpl:null, shapeNorm:1,
-  setPulse(ns){ this.sigma = 2 + ns*0.8; this.tpl = gaussKernel(this.sigma);
-    this.shapeNorm = this.tpl.energy; },
-  echoAmp(R, ptx, rho, alpha){
-    if(R<=0) return 0;
-    const geo = DR*DR/(4*R*R), eta = Math.exp(-alpha*2*R);
-    return ptx*geo*eta*rho*RX_GAIN;
-  },
-  // analytic detection (drives logic reliably)
-  detect(R, ptx, rho, alpha, noise){
-    const amp = this.echoAmp(R,ptx,rho,alpha);
-    const nf = Math.max(noise,1e-6);
-    const snr = amp*this.shapeNorm/nf;
-    const detected = snr>=DET_FACTOR;
-    // range jitter shrinks with SNR
-    let sr = (MAXV/N)*(0.5 + 6/Math.max(snr,1e-3)); sr=Math.min(sr,8);
-    const meas = R + randn()*sr;
-    return {detected, snr, meas, amp};
-  },
-  // build received + matched-filter traces for the graphs
-  traces(R, ptx, rho, alpha, noise){
-    const recv=new Float32Array(N), sent=new Float32Array(N);
-    const {k,c}=this.tpl, L=k.length;
-    const t0=Math.round(8+this.sigma);            // sent pulse centre
-    const idx=Math.round(8+this.sigma + (R/MAXV)*(N-20-8)); // echo centre (moves L→R with R)
-    const amp=this.echoAmp(R,ptx,rho,alpha), A=Math.max(0,Math.min(amp,3));
-    for(let i=0;i<N;i++){
-      sent[i]=Math.exp(-((i-t0)**2)/(2*this.sigma*this.sigma));
-      let e=A*Math.exp(-((i-idx)**2)/(2*this.sigma*this.sigma));
-      recv[i]=e+randn()*noise;
-    }
-    // matched filter (correlate short kernel over recv)
-    const mf=new Float32Array(N), nn=this.tpl.norm;
-    for(let d=0;d<N;d++){ let s=0;
-      for(let j=0;j<L;j++){ const ri=d+j-c|0; if(ri>=0&&ri<N) s+=recv[ri]*k[j]; }
-      mf[d]=s/nn;
-    }
-    // peak + robust noise floor (MAD)
-    let peak=-1e9,pi=0; for(let i=0;i<N;i++) if(mf[i]>peak){peak=mf[i];pi=i;}
-    const sorted=Array.from(mf).sort((a,b)=>a-b), med=sorted[N>>1];
-    const dev=sorted.map(x=>Math.abs(x-med)).sort((a,b)=>a-b);
-    const nf=Math.max(1.4826*dev[N>>1],1e-6);
-    return {recv,sent,mf,peak,pi,nf,thr:nf*DET_FACTOR,snr:peak/nf};
-  }
+// ---- vehicle presets ----
+const VEHICLES={
+  tesla:{name:"Tesla Model 3",mu:0.90,aMax:8.0,decel:8.83,tAct:0.15,act:"hydraulic"},
+  corolla:{name:"Toyota Corolla",mu:0.75,aMax:3.0,decel:7.35,tAct:0.25,act:"hydraulic"},
+  truck:{name:"Heavy Truck",mu:0.60,aMax:1.2,decel:5.88,tAct:0.45,act:"pneumatic"},
+};
+// ---- scenarios ----
+const SCEN={
+  cutin:{type:"car",beh:"cutin",fog:0.02,rho:0.6,v0:60,lat0:1.0,label:"CUT-IN VEHICLE"},
+  hardbrake:{type:"car",beh:"brake",fog:0.02,rho:0.6,v0:80,lat0:0,label:"HARD-BRAKING LEAD"},
+  pedestrian:{type:"ped",beh:"cross",fog:0.03,rho:0.1,v0:0,lat0:-1.5,label:"PEDESTRIAN (ρ=0.1)"},
+  fog:{type:"car",beh:"slow",fog:0.22,rho:0.6,v0:40,lat0:0,label:"LEAD IN HEAVY FOG"},
+  static:{type:"obstacle",beh:"static",fog:0.02,rho:0.4,v0:0,lat0:0,label:"STATIC OBSTACLE"},
+};
+
+// ============ SIGNAL / LiDAR (unchanged DSP math) ============
+function gaussKernel(sigma){const L=Math.max(5,Math.ceil(6*sigma)|1),c=(L-1)/2,k=new Float32Array(L);
+  let e=0;for(let i=0;i<L;i++){k[i]=Math.exp(-((i-c)**2)/(2*sigma*sigma));e+=k[i]*k[i];}
+  return{k,c,norm:Math.sqrt(e),energy:Math.sqrt(e)};}
+function randn(){let u=0,v=0;while(!u)u=Math.random();while(!v)v=Math.random();
+  return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
+const LiDAR={sigma:3,tpl:null,shapeNorm:1,
+  setPulse(ns){this.sigma=2+ns*0.8;this.tpl=gaussKernel(this.sigma);this.shapeNorm=this.tpl.energy;},
+  // optical radar equation  P_rec = P_tx·ρ·(A_rx/πR²)·e^(-2αR)   [A_rx/πR² == D²/4R²]
+  echoAmp(R,ptx,rho,al){if(R<=0)return 0;return ptx*(DR*DR/(4*R*R))*Math.exp(-al*2*R)*rho*RX_GAIN;},
+  detect(R,ptx,rho,al,ns){const amp=this.echoAmp(R,ptx,rho,al),nf=Math.max(ns,1e-6),snr=amp*this.shapeNorm/nf;
+    let sr=(MAXV/N)*(0.5+6/Math.max(snr,1e-3));sr=Math.min(sr,8);
+    return{detected:snr>=DET,snr,meas:R+randn()*sr,amp};},
+  traces(R,ptx,rho,al,ns){const recv=new Float32Array(N),sent=new Float32Array(N);
+    const {k,c}=this.tpl,L=k.length,t0=Math.round(8+this.sigma);
+    const idx=Math.round(8+this.sigma+(R/MAXV)*(N-28)),amp=this.echoAmp(R,ptx,rho,al),A=Math.max(0,Math.min(amp,3));
+    for(let i=0;i<N;i++){sent[i]=Math.exp(-((i-t0)**2)/(2*this.sigma*this.sigma));
+      recv[i]=A*Math.exp(-((i-idx)**2)/(2*this.sigma*this.sigma))+randn()*ns;}
+    const mf=new Float32Array(N),nn=this.tpl.norm;
+    for(let d=0;d<N;d++){let s=0;for(let j=0;j<L;j++){const ri=d+j-c|0;if(ri>=0&&ri<N)s+=recv[ri]*k[j];}mf[d]=s/nn;}
+    let peak=-1e9,pi=0;for(let i=0;i<N;i++)if(mf[i]>peak){peak=mf[i];pi=i;}
+    const sorted=Array.from(mf).sort((a,b)=>a-b),med=sorted[N>>1];
+    const dev=sorted.map(x=>Math.abs(x-med)).sort((a,b)=>a-b),nf=Math.max(1.4826*dev[N>>1],1e-6);
+    return{recv,sent,mf,peak,pi,nf,thr:nf*DET,snr:peak/nf};}
 };
 LiDAR.setPulse(2);
+class MA{constructor(n){this.n=n;this.b=[];}push(x){if(x!=null){this.b.push(x);if(this.b.length>this.n)this.b.shift();}return this.v();}
+  v(){return this.b.length?this.b.reduce((a,c)=>a+c,0)/this.b.length:null;}reset(){this.b=[];}}
 
-// ===================== MOVING AVERAGE =====================
-class MA{ constructor(n){this.n=n;this.buf=[];}
-  push(x){ if(x!=null){this.buf.push(x); if(this.buf.length>this.n)this.buf.shift();} return this.val();}
-  val(){ return this.buf.length? this.buf.reduce((a,b)=>a+b,0)/this.buf.length : null; }
-  reset(){this.buf=[];}
-}
+// ============ VEHICLES ============
+class Ego{constructor(sp){this.speed=sp;this.cruise=sp;this.x=0;this.tx=0;this.braking=false;
+  this.merging=false;this.avoided=false;this.brakeTarget=0;}
+  update(dt,veh){const decel=veh.decel*3.6,accel=veh.aMax*3.6;
+    if(this.braking)this.speed=Math.max(this.brakeTarget,this.speed-decel*dt);
+    else if(!this.merging&&this.speed<this.cruise)this.speed=Math.min(this.cruise,this.speed+accel*dt);
+    else if(!this.merging&&this.speed>this.cruise)this.speed=Math.max(this.cruise,this.speed-decel*dt);
+    this.x+=(this.tx-this.x)*Math.min(1,3.5*dt);
+    if(this.merging&&Math.abs(this.tx-this.x)<0.03)this.avoided=true;}}
+class Target{constructor(s){this.type=s.type;this.beh=s.beh;this.speed=s.v0;this.lat=s.lat0;
+  this.timer=0;this.braking=false;this.baseLabel=s.label;}
+  update(dt){this.timer+=dt;
+    if(this.beh==="brake"&&this.timer>=3){this.braking=true;this.speed=Math.max(0,this.speed-LEAD_HARD_DECEL*dt);}
+    else if(this.beh==="cutin"){this.lat+=(0-this.lat)*Math.min(1,0.4*dt); if(this.timer>2)this.lat=Math.max(0,this.lat-0.35*dt);}
+    else if(this.beh==="cross"){this.lat+=0.55*dt; if(this.lat>1.6)this.lat=-1.6;}}
+  inLane(){return Math.abs(this.lat)<0.6;}}
 
-// ===================== VEHICLES =====================
-class Ego{
-  constructor(sp){ this.speed=sp;this.cruise=sp;this.x=0;this.tx=0;
-    this.braking=false;this.merging=false;this.avoided=false;this.brakeTarget=0; }
-  update(dt){
-    if(this.braking) this.speed=Math.max(this.brakeTarget,this.speed-DECEL_KMH_S*dt);
-    else if(!this.merging && this.speed<this.cruise) this.speed=Math.min(this.cruise,this.speed+15*dt);
-    else if(!this.merging && this.speed>this.cruise) this.speed=Math.max(this.cruise,this.speed-DECEL_KMH_S*dt);
-    this.x += (this.tx-this.x)*Math.min(1,3.5*dt);
-    if(this.merging && Math.abs(this.tx-this.x)<0.03) this.avoided=true;
-  }
-}
-const BEH={static:0, slow:50, brake_threat:80};
-const LABEL={static:"STATIC OBSTACLE  (0 km/h)", slow:"CONSTANT PACE  (50 km/h)",
-             brake_threat:"EMERGENCY BRAKE THREAT"};
-class Target{
-  constructor(beh){ this.beh=beh||["static","slow","brake_threat"][Math.floor(Math.random()*3)];
-    this.speed=BEH[this.beh]; this.timer=0; this.braking=false; }
-  update(dt){ this.timer+=dt;
-    if(this.beh==="brake_threat" && this.timer>=3){ this.braking=true;
-      this.speed=Math.max(0,this.speed-LEAD_DECEL_KMH_S*dt); } }
-}
+// ============ STATE ============
+const S={speed:90,fog:0.02,rho:0.6,noise:0.15,vehKey:"tesla",scenKey:"cutin",
+  ego:null,target:null,range:START_RANGE,scroll:0,t:0,decision:"CRUISE",committed:false,
+  following:false,ma:new MA(MA_WIN),detected:false,raw:null,sm:null,dMech:0,dReq:0,snr:0,
+  speedDiff:0,ttc:0,prec:0,scan:[],last:null,blinded:false,stopTimer:0};
+function veh(){return VEHICLES[S.vehKey];}
+function applyScenario(){const sc=SCEN[S.scenKey];S.fog=sc.fog;S.rho=sc.rho;
+  document.getElementById("s-fog").value=sc.fog;document.getElementById("s-rho").value=sc.rho;updateLabels();}
+function reset(){const sc=SCEN[S.scenKey];S.range=START_RANGE;S.ego=new Ego(S.speed);
+  S.target=new Target(sc);S.decision="CRUISE";S.committed=false;S.following=false;S.ma.reset();S.stopTimer=0;}
 
-// ===================== APP STATE =====================
-const S={
-  speed:90,fog:0.02,ptx:1,rho:0.3,noise:0.15,
-  mode:"RANDOM", forced:null,
-  ego:new Ego(90), target:new Target("slow"),
-  range:START_RANGE, scroll:0, t:0, decision:"CRUISE", committed:false,
-  following:false, ma:new MA(MA_WIN), showEq:true,
-  detected:false, raw:null, sm:null, dBrake:0, dReq:0, snr:0, speedDiff:0,
-  scan:[], last:null, blinded:false, stopTimer:0, critical:false,
-};
-function reset(){
-  S.range=START_RANGE; S.ego=new Ego(S.speed);
-  S.target = (S.mode==="MANUAL"&&S.forced)? new Target(S.forced): new Target();
-  S.decision="CRUISE"; S.committed=false; S.following=false; S.ma.reset();
-  S.stopTimer=0;
-}
-reset();
+// ============ UPDATE (decision uses detailed D_required; DSP untouched) ============
+function update(dt){S.t+=dt;const v=S.ego,VH=veh();
+  v.cruise=S.following?Math.min(S.speed,S.target.speed):S.speed;
+  const det=LiDAR.detect(S.range,1.0,S.rho,S.fog,S.noise);
+  S.last=LiDAR.traces(S.range,1.0,S.rho,S.fog,S.noise);
+  S.detected=det.detected;S.snr=S.last.snr;S.prec=det.amp;
+  const inLane=S.target.inLane();
+  const raw=(det.detected&&inLane)?det.meas:null;
+  S.raw=raw;const sm=raw!=null?S.ma.push(raw):(S.ma.reset(),null);S.sm=sm;S.blinded=!det.detected;
 
-// ===================== UPDATE (physics + decision) =====================
-function update(dt){
-  S.t+=dt; const v=S.ego;
-  v.cruise = S.following? Math.min(S.speed, S.target.speed): S.speed;
-
-  // --- LiDAR primary measurement (center beam) ---
-  const det = LiDAR.detect(S.range,S.ptx,S.rho,S.fog,S.noise);
-  S.last = LiDAR.traces(S.range,S.ptx,S.rho,S.fog,S.noise);
-  S.detected = det.detected; S.snr = S.last.snr;
-  const raw = det.detected? det.meas : null;
-  S.raw = raw;
-  const sm = det.detected? S.ma.push(raw) : (S.ma.reset(), null);
-  S.sm = sm; S.blinded=!det.detected;
-
-  // --- distances ---
-  const ve=v.speed/3.6;
-  const dBrake=ve*ve/(2*A_MAX), dSafe=ve*REACT_T+BUFFER, dTotal=dBrake+dSafe;
-  const dEngage=ve*ve/(2*A_COMFORT)+dSafe;
-  S.dBrake=dBrake; S.dReq=dTotal;
-
-  // --- scan fan / point cloud ---
+  // ---- detailed braking model ----
+  const ve=v.speed/3.6, latency=T_DSP+T_FILTER+VH.tAct;
+  const dReact=ve*latency, dMech=ve*ve/(2*VH.decel), dReq=dReact+dMech+BUFFER;
+  S.dMech=dMech;S.dReq=dReq;
+  S.speedDiff=v.speed-S.target.speed;
+  const closing=(v.speed-S.target.speed)/3.6;
+  S.ttc=(closing>0.2&&S.detected)?S.range/closing:Infinity;
   runScan();
 
-  // --- autonomous decision (latched) ---
   const dSensor=sm;
-  const threat = det.detected && dSensor!=null && dSensor<dEngage && !v.avoided;
-  S.critical=threat;
-  S.speedDiff = v.speed - S.target.speed;
-  if(threat && !S.committed){
-    if(dSensor>=dTotal && S.speedDiff>DV_THR){ S.decision="AEB"; v.braking=true; v.brakeTarget=Math.max(0,S.target.speed); }
-    else { S.decision="LANE MERGE"; if(!v.merging){v.merging=true; v.tx=1;} }
+  const threat=det.detected&&inLane&&dSensor!=null&&dSensor<dReq&&!v.avoided;
+  if(threat&&!S.committed){
+    if(dSensor>=dMech+BUFFER&&S.speedDiff>DV_THR){S.decision="AEB";v.braking=true;v.brakeTarget=Math.max(0,S.target.speed);}
+    else{S.decision="LANE MERGE";if(!v.merging){v.merging=true;v.tx=1;}}
     S.committed=true;
-  } else if(!threat && !S.committed){
-    S.decision="CRUISE"; if(!v.merging&&!v.braking) v.braking=false;
-  }
-  // track live lead speed while braking (so a braking lead is followed to a stop)
-  if(v.braking) v.brakeTarget=Math.max(0,S.target.speed);
-  // switch to adaptive-cruise FOLLOW once matched to a steady moving lead
+  }else if(!threat&&!S.committed){S.decision="CRUISE";}
+  if(v.braking)v.brakeTarget=Math.max(0,S.target.speed);
   if(S.decision==="AEB"&&v.braking&&S.target.speed>1&&!S.target.braking&&v.speed<=S.target.speed+0.5){
-    v.braking=false; S.following=true; S.decision="FOLLOW";
-  }
+    v.braking=false;S.following=true;S.decision="FOLLOW";}
 
-  // --- physics ---
-  v.update(dt); S.target.update(dt);
-
-  // --- gap kinematics ---
-  const vt=S.target.speed/3.6;
-  const rel = v.avoided? -(Math.abs(ve)+4) : (vt-ve);
-  S.range = Math.max(5, Math.min(MAXV, S.range + rel*dt));
-  S.scroll = (S.scroll + ve*dt*9) % 2000;
-
-  // --- auto-reset ---
-  if(v.speed<1 && v.braking) S.stopTimer+=dt; else S.stopTimer=0;
-  if((v.avoided && S.range>=MAXV-1) || S.range<=5.5 || S.stopTimer>2.5) reset();
+  v.update(dt,VH);S.target.update(dt);
+  const vt=S.target.speed/3.6, rel=v.avoided?-(Math.abs(ve)+4):(vt-ve);
+  S.range=Math.max(5,Math.min(MAXV,S.range+rel*dt));
+  S.scroll=(S.scroll+ve*dt*9)%2000;
+  if(v.speed<1&&v.braking)S.stopTimer+=dt;else S.stopTimer=0;
+  if((v.avoided&&S.range>=MAXV-1)||S.range<=5.5||S.stopTimer>2.5)reset();
 }
+function runScan(){const pts=[],R=S.range,egoLat=S.ego.x*LANE_W,tLat=S.target.lat*LANE_W;
+  for(let i=0;i<LINES;i++){const ang=-FOV+(2*FOV)*i/(LINES-1),lat=egoLat+R*Math.tan(ang);
+    if(Math.abs(lat-tLat)>TARGET_HALF)continue;const p=LiDAR.detect(R/Math.cos(ang),1,S.rho,S.fog,S.noise);
+    pts.push({lat,det:p.detected});}S.scan=pts;}
 
-function runScan(){
-  const pts=[], R=S.range, egoLat=S.ego.x*LANE_W, tgtLat=0;
-  for(let i=0;i<LINES;i++){
-    const ang=-FOV + (2*FOV)*i/(LINES-1);
-    const lat=egoLat + R*Math.tan(ang);
-    if(Math.abs(lat-tgtLat)>TARGET_HALF) continue;
-    const slant=R/Math.cos(ang);
-    const p=LiDAR.detect(slant,S.ptx,S.rho,S.fog,S.noise);
-    pts.push({lat, det:p.detected});
-  }
-  S.scan=pts;
-}
+// ============ SCENE RENDER ============
+const scene=document.getElementById("scene"),sctx=scene.getContext("2d");let SW=0,SH=0;
+function fitScene(){const r=scene.parentElement.getBoundingClientRect();SW=scene.width=r.width;SH=scene.height=r.height;}
+const HZ=()=>SH*0.20,EY=()=>SH*0.84;
+function r2y(r){const f=Math.max(0,Math.min(1,r/MAXV));return EY()+(HZ()-EY())*f;}
+function rHalf(y){const f=(y-HZ())/(EY()-HZ());return SW*(0.05+0.42*f);}
+function wX(wx,y){return SW/2+wx*rHalf(y)*0.55;}
+function rr(x,y,w,h,rad){sctx.beginPath();sctx.moveTo(x+rad,y);sctx.arcTo(x+w,y,x+w,y+h,rad);
+  sctx.arcTo(x+w,y+h,x,y+h,rad);sctx.arcTo(x,y+h,x,y,rad);sctx.arcTo(x,y,x+w,y,rad);sctx.closePath();}
 
-// ===================== RENDER: SCENE =====================
-const scene=document.getElementById("scene"), sctx=scene.getContext("2d");
-let SW=0,SH=0;
-function fitScene(){ const r=scene.parentElement.getBoundingClientRect();
-  SW=scene.width=r.width; SH=scene.height=r.height; }
-const HORIZON=()=>SH*0.20, EGOY=()=>SH*0.84;
-function rangeToY(r){ const f=Math.max(0,Math.min(1,r/MAXV)); return EGOY()+(HORIZON()-EGOY())*f; }
-function roadHalf(y){ const f=(y-HORIZON())/(EGOY()-HORIZON()); return SW*(0.05+0.42*f); }
-function worldX(wx,y){ return SW/2 + wx*roadHalf(y)*0.55; }
+function drawScene(){sctx.clearRect(0,0,SW,SH);sctx.fillStyle="#070a10";sctx.fillRect(0,0,SW,SH);
+  const cx=SW/2,hy=HZ(),ey=EY(),th=rHalf(hy),bh=rHalf(ey+40);
+  sctx.fillStyle="#141a24";sctx.beginPath();sctx.moveTo(cx-th,hy);sctx.lineTo(cx+th,hy);
+  sctx.lineTo(cx+bh,ey+40);sctx.lineTo(cx-bh,ey+40);sctx.closePath();sctx.fill();
+  sctx.strokeStyle="rgba(0,224,255,.5)";sctx.lineWidth=3;
+  for(const sd of[-1,1]){sctx.beginPath();sctx.moveTo(cx+sd*th,hy);sctx.lineTo(cx+sd*bh,ey+40);sctx.stroke();}
+  for(const ln of[-0.5,0.5]){for(let k=-1;k<40;k++){const yy=hy+((k*36+S.scroll)%(ey-hy+60));
+    if(yy<hy||yy>ey+40)continue;const y2=Math.min(yy+16,ey+40);
+    sctx.strokeStyle="rgba(220,224,230,.65)";sctx.lineWidth=1+3*(yy-hy)/(ey-hy);
+    sctx.beginPath();sctx.moveTo(wX(ln,yy),yy);sctx.lineTo(wX(ln,y2),y2);sctx.stroke();}}
+  drawTarget();drawBeam();drawEgo();drawFog();drawHUD();}
 
-function drawScene(){
-  sctx.clearRect(0,0,SW,SH);
-  sctx.fillStyle="#070a10"; sctx.fillRect(0,0,SW,SH);
-  const cx=SW/2, hy=HORIZON(), ey=EGOY();
-  // road
-  const th=roadHalf(hy), bh=roadHalf(ey+40);
-  sctx.fillStyle="#141a24"; sctx.beginPath();
-  sctx.moveTo(cx-th,hy); sctx.lineTo(cx+th,hy);
-  sctx.lineTo(cx+bh,ey+40); sctx.lineTo(cx-bh,ey+40); sctx.closePath(); sctx.fill();
-  sctx.strokeStyle="rgba(0,224,255,.55)"; sctx.lineWidth=3;
-  for(const sd of[-1,1]){ sctx.beginPath(); sctx.moveTo(cx+sd*th,hy);
-    sctx.lineTo(cx+sd*bh,ey+40); sctx.stroke(); }
-  // scrolling dashes
-  for(const ln of[-0.5,0.5]){ for(let k=-1;k<40;k++){
-    const yy=hy+((k*36+S.scroll)%(ey-hy+60)); if(yy<hy||yy>ey+40)continue;
-    const y2=Math.min(yy+16,ey+40);
-    sctx.strokeStyle="rgba(220,224,230,.7)"; sctx.lineWidth=1+3*(yy-hy)/(ey-hy);
-    sctx.beginPath(); sctx.moveTo(worldX(ln,yy),yy); sctx.lineTo(worldX(ln,y2),y2); sctx.stroke();
-  }}
-  // target car
-  const yF=rangeToY(S.range), sc=0.25+0.85*(yF-hy)/(ey-hy);
-  const tw=48*sc, thg=76*sc, tsx=worldX(0,yF);
-  sctx.fillStyle=S.detected? "#8a2436":"#282c34";
-  rr(tsx-tw/2,yF-thg/2,tw,thg,6*sc); sctx.fill();
-  if(S.detected){ sctx.strokeStyle="#39d98a"; sctx.lineWidth=3;
-    sctx.shadowColor="#39d98a"; sctx.shadowBlur=14; rr(tsx-tw/2,yF-thg/2,tw,thg,6*sc);
-    sctx.stroke(); sctx.shadowBlur=0; }
-  // scan fan + point cloud
-  if(S.detected||!S.blinded){
-    const col=S.detected? "57,217,138":"255,77,109";
-    // fan sector
-    const a0=-FOV,a1=FOV, egoLat=S.ego.x*LANE_W, fx=worldX(S.ego.x,ey), fy=ey-40;
-    const pL=worldX((egoLat+S.range*Math.tan(a0))/LANE_W,yF), pR=worldX((egoLat+S.range*Math.tan(a1))/LANE_W,yF);
-    sctx.fillStyle=`rgba(${col},.09)`; sctx.beginPath();
-    sctx.moveTo(fx,fy); sctx.lineTo(pL,yF); sctx.lineTo(pR,yF); sctx.closePath(); sctx.fill();
-    // dashed centre pulse
-    const tx=worldX(0,yF); sctx.setLineDash([9,12]); sctx.lineDashOffset=-(S.t*90)%21;
-    sctx.strokeStyle=`rgba(${col},.9)`; sctx.lineWidth=3;
-    sctx.beginPath(); sctx.moveTo(fx,fy); sctx.lineTo(tx,yF); sctx.stroke(); sctx.setLineDash([]);
-    // points
-    for(const p of S.scan){ const px=worldX(p.lat/LANE_W,yF);
-      for(const dy of[-9*sc,9*sc]){ const c2=p.det?"#39d98a":"#ff4d6d";
-        sctx.fillStyle=c2; sctx.shadowColor=c2; sctx.shadowBlur=8;
-        sctx.beginPath(); sctx.arc(px,yF+dy,3.5*sc,0,7); sctx.fill(); sctx.shadowBlur=0;
-        sctx.fillStyle="#fff"; sctx.beginPath(); sctx.arc(px,yF+dy,1.4*sc,0,7); sctx.fill(); }
-    }
-  }
-  // ego car
-  drawEgo(cx,ey);
-  // fog
-  drawFog();
-  // HUD + banner
-  drawHUD();
-}
-function drawEgo(_,ey){
-  const x=worldX(S.ego.x,ey), w=56,h=94;
-  sctx.fillStyle="#2c3850"; rr(x-w/2,ey-h/2,w,h,12); sctx.fill();
-  sctx.fillStyle="#0c1624"; rr(x-w/2+8,ey-h*0.22,w-16,h*0.4,7); sctx.fill();
-  sctx.strokeStyle="rgba(0,224,255,.8)"; sctx.lineWidth=2; rr(x-w/2,ey-h/2,w,h,12); sctx.stroke();
-  // headlights
-  for(const dx of[-w/2+10,w/2-10]){ const g=sctx.createRadialGradient(x+dx,ey-h/2,1,x+dx,ey-h/2,24);
-    g.addColorStop(0,"rgba(255,255,210,.9)"); g.addColorStop(1,"rgba(255,255,210,0)");
-    sctx.fillStyle=g; sctx.beginPath(); sctx.arc(x+dx,ey-h/2,24,0,7); sctx.fill(); }
-  // brake lights
-  const on=S.ego.braking&&S.ego.speed>0.1&&Math.sin(S.t*12)>-0.3;
-  for(const dx of[-w/2+10,w/2-10]){ sctx.fillStyle=on?"#ff2d3a":"#5a1420";
-    if(on){sctx.shadowColor="#ff2d3a";sctx.shadowBlur=16;}
-    sctx.beginPath(); sctx.arc(x+dx,ey+h/2-4,5,0,7); sctx.fill(); sctx.shadowBlur=0; }
-}
-let fogParts=null;
-function drawFog(){
-  const frac=Math.max(0,Math.min(1,S.fog/0.3)); if(frac<=0.01)return;
-  sctx.fillStyle=`rgba(200,206,214,${0.05+0.4*frac})`; sctx.fillRect(0,0,SW,SH);
-  if(!fogParts){ fogParts=[]; for(let i=0;i<200;i++) fogParts.push({x:Math.random(),y:Math.random(),v:1+Math.random()*3}); }
-  const n=Math.floor(frac*160);
-  for(let i=0;i<n;i++){ const p=fogParts[i]; const bx=p.x*SW, by=(p.y*SH+S.t*(120+240*frac))%SH;
-    if(frac>0.55){ sctx.strokeStyle=`rgba(225,230,236,${0.25+0.4*frac})`; sctx.lineWidth=1;
-      sctx.beginPath(); sctx.moveTo(bx,by); sctx.lineTo(bx-2,by+10); sctx.stroke(); }
-    else{ sctx.fillStyle=`rgba(230,234,240,${0.3*frac})`; sctx.beginPath(); sctx.arc(bx,by,2,0,7); sctx.fill(); }
-  }
-}
-function drawHUD(){
-  sctx.font="bold 17px "+getMono(); sctx.textAlign="left";
-  sctx.fillStyle="#00e0ff"; sctx.fillText("SPEED "+S.ego.speed.toFixed(0).padStart(3)+" km/h",16,26);
+function drawTarget(){const yF=r2y(S.range),sc=0.25+0.9*(yF-HZ())/(EY()-HZ()),sx=wX(S.target.lat,yF);
+  if(S.target.type==="ped")drawPed(sx,yF,sc);
+  else if(S.target.type==="obstacle")drawObstacle(sx,yF,sc);
+  else drawCar(sx,yF,sc,S.detected?"#8a2436":"#2a2f3a",S.target.braking,false);
+  // scan point cloud on target
+  if(!S.blinded){const col=S.detected?"57,217,138":"255,77,109";
+    for(const p of S.scan){const px=wX(p.lat,yF);for(const dy of[-8*sc,8*sc]){const c=p.det?"#39d98a":"#ff4d6d";
+      sctx.fillStyle=c;sctx.shadowColor=c;sctx.shadowBlur=8;sctx.beginPath();sctx.arc(px,yF+dy,3.4*sc,0,7);sctx.fill();sctx.shadowBlur=0;}}}}
+
+function drawCar(x,y,sc,color,brake,isHost){const w=48*sc,h=82*sc;
+  sctx.fillStyle="rgba(0,0,0,.45)";sctx.beginPath();sctx.ellipse(x,y+h/2,w*0.55,7*sc,0,0,7);sctx.fill();
+  const g=sctx.createLinearGradient(x-w/2,0,x+w/2,0);g.addColorStop(0,shade(color,-25));
+  g.addColorStop(.5,color);g.addColorStop(1,shade(color,-25));sctx.fillStyle=g;rr(x-w/2,y-h/2,w,h,10*sc);sctx.fill();
+  sctx.fillStyle="rgba(10,16,26,.92)";rr(x-w/2+6*sc,y-h*0.30,w-12*sc,h*0.34,6*sc);sctx.fill(); // windshield
+  rr(x-w/2+6*sc,y+h*0.02,w-12*sc,h*0.24,6*sc);sctx.fill(); // rear glass
+  sctx.strokeStyle=isHost?"rgba(0,224,255,.85)":"rgba(255,255,255,.25)";sctx.lineWidth=2;rr(x-w/2,y-h/2,w,h,10*sc);sctx.stroke();
+  if(isHost){for(const dx of[-w/2+9*sc,w/2-9*sc]){const rg=sctx.createRadialGradient(x+dx,y-h/2,1,x+dx,y-h/2,26*sc);
+    rg.addColorStop(0,"rgba(255,255,210,.95)");rg.addColorStop(1,"rgba(255,255,210,0)");
+    sctx.fillStyle=rg;sctx.beginPath();sctx.arc(x+dx,y-h/2,26*sc,0,7);sctx.fill();}}
+  // tail / brake lights (rear = bottom)
+  const on=brake&&(!isHost||Math.sin(S.t*12)>-0.3);
+  for(const dx of[-w/2+8*sc,w/2-8*sc]){sctx.fillStyle=on?"#ff2d3a":"#661722";
+    if(on){sctx.shadowColor="#ff2d3a";sctx.shadowBlur=16*sc;}
+    rr(x+dx-4*sc,y+h/2-8*sc,8*sc,5*sc,2*sc);sctx.fill();sctx.shadowBlur=0;}}
+
+function drawPed(x,y,sc){const s=sc*1.1;const col=S.detected?"#39d98a":"#c9d2de";
+  sctx.strokeStyle=col;sctx.fillStyle=col;sctx.lineWidth=3.2*s;sctx.lineCap="round";
+  sctx.beginPath();sctx.arc(x,y-26*s,6*s,0,7);sctx.fill(); // head
+  sctx.beginPath();sctx.moveTo(x,y-20*s);sctx.lineTo(x,y-2*s);sctx.stroke(); // body
+  const sw=Math.sin(S.t*6)*5*s;
+  sctx.beginPath();sctx.moveTo(x,y-16*s);sctx.lineTo(x-8*s,y-8*s+sw);sctx.moveTo(x,y-16*s);sctx.lineTo(x+8*s,y-8*s-sw);sctx.stroke(); // arms
+  sctx.beginPath();sctx.moveTo(x,y-2*s);sctx.lineTo(x-7*s,y+14*s-sw);sctx.moveTo(x,y-2*s);sctx.lineTo(x+7*s,y+14*s+sw);sctx.stroke(); // legs
+  if(S.detected){sctx.strokeStyle="rgba(57,217,138,.5)";sctx.lineWidth=2;sctx.strokeRect(x-13*s,y-34*s,26*s,52*s);}}
+
+function drawObstacle(x,y,sc){const s=sc,w=34*s,h=30*s; // hazard cone/box
+  sctx.fillStyle="rgba(0,0,0,.4)";sctx.beginPath();sctx.ellipse(x,y+h/2,w*0.6,6*s,0,0,7);sctx.fill();
+  sctx.fillStyle="#e8a020";rr(x-w/2,y-h/2,w,h,4*s);sctx.fill();
+  sctx.fillStyle="#141414";for(let i=0;i<3;i++){rr(x-w/2,y-h/2+i*h/3,w,h/6,0);sctx.fill();}
+  sctx.strokeStyle=S.detected?"#39d98a":"#ff4d6d";sctx.lineWidth=3;rr(x-w/2,y-h/2,w,h,4*s);sctx.stroke();
+  sctx.fillStyle="#141414";sctx.font=`bold ${13*s}px sans-serif`;sctx.textAlign="center";sctx.fillText("!",x,y+5*s);sctx.textAlign="left";}
+
+function drawBeam(){if(S.blinded)return;const yF=r2y(S.range),fx=wX(S.ego.x,EY()),fy=EY()-40;
+  const egoLat=S.ego.x*LANE_W,col=S.detected?"57,217,138":"255,77,109";
+  const pL=wX((egoLat+S.range*Math.tan(-FOV))/LANE_W,yF),pR=wX((egoLat+S.range*Math.tan(FOV))/LANE_W,yF);
+  sctx.fillStyle=`rgba(${col},.08)`;sctx.beginPath();sctx.moveTo(fx,fy);sctx.lineTo(pL,yF);sctx.lineTo(pR,yF);sctx.closePath();sctx.fill();
+  const tx=wX(S.target.lat,yF);sctx.setLineDash([9,12]);sctx.lineDashOffset=-(S.t*90)%21;
+  sctx.strokeStyle=`rgba(${col},.9)`;sctx.lineWidth=3;sctx.beginPath();sctx.moveTo(fx,fy);sctx.lineTo(tx,yF);sctx.stroke();sctx.setLineDash([]);}
+
+function egoBox(){const y=EY(),x=wX(S.ego.x,y),w=52,h=90;return{x:x-w/2,y:y-h/2,w,h};}
+function drawEgo(){drawCar(wX(S.ego.x,EY()),EY(),1.0,"#2c3850",S.ego.braking&&S.ego.speed>0.1,true);}
+
+let fogP=null;
+function drawFog(){const f=Math.max(0,Math.min(1,S.fog/0.3));if(f<=0.01)return;
+  sctx.fillStyle=`rgba(200,206,214,${0.05+0.4*f})`;sctx.fillRect(0,0,SW,SH);
+  if(!fogP){fogP=[];for(let i=0;i<200;i++)fogP.push({x:Math.random(),y:Math.random()});}
+  const n=Math.floor(f*160);for(let i=0;i<n;i++){const p=fogP[i],bx=p.x*SW,by=(p.y*SH+S.t*(120+240*f))%SH;
+    if(f>0.55){sctx.strokeStyle=`rgba(225,230,236,${0.25+0.4*f})`;sctx.lineWidth=1;sctx.beginPath();sctx.moveTo(bx,by);sctx.lineTo(bx-2,by+10);sctx.stroke();}
+    else{sctx.fillStyle=`rgba(230,234,240,${0.3*f})`;sctx.beginPath();sctx.arc(bx,by,2,0,7);sctx.fill();}}}
+
+function drawHUD(){sctx.font="bold 17px Consolas,monospace";sctx.textAlign="left";
+  sctx.fillStyle="#00e0ff";sctx.fillText("SPEED "+S.ego.speed.toFixed(0).padStart(3)+" km/h",16,26);
   sctx.fillStyle=S.detected?"#39d98a":"#ff4d6d";
-  sctx.fillText(S.detected&&S.sm!=null? "RANGE "+S.sm.toFixed(1)+" m":"RANGE  -- LOST",16,48);
-  if(S.ego.braking&&S.ego.speed>0.1&&Math.sin(S.t*10)>-0.2){
-    sctx.fillStyle="#ff4d6d"; sctx.beginPath(); sctx.arc(24,74,7,0,7); sctx.fill();
-    sctx.fillText("BRAKING",38,80);
-  }
+  sctx.fillText(S.detected&&S.sm!=null?"RANGE "+S.sm.toFixed(1)+" m":"RANGE  -- LOST",16,48);
+  if(S.ego.braking&&S.ego.speed>0.1&&Math.sin(S.t*10)>-0.2){sctx.fillStyle="#ff4d6d";
+    sctx.beginPath();sctx.arc(24,74,7,0,7);sctx.fill();sctx.fillText("BRAKING",38,80);}
   let msg=null,col="#ff4d6d";
   if(S.blinded){msg="SENSOR BLINDED — DISENGAGING AUTOPILOT";col="#ffb020";}
   else if(S.decision==="AEB"&&S.ego.braking){msg="EMERGENCY BRAKING ENGAGED";col="#ff4d6d";}
   else if(S.decision==="LANE MERGE"&&S.ego.merging){msg="COLLISION AVOIDANCE: LANE CHANGE";col="#39d98a";}
   else if(S.decision==="FOLLOW"){msg="ADAPTIVE CRUISE: MATCHING LEAD SPEED";col="#ffb020";}
-  if(msg){ const a=0.55+0.45*Math.abs(Math.sin(S.t*4));
-    sctx.textAlign="center"; let fs=26;
-    sctx.font="bold "+fs+"px "+getSans();
-    let w=sctx.measureText(msg).width, avail=SW-48;
-    if(w>avail){ fs=Math.floor(fs*avail/w); sctx.font="bold "+fs+"px "+getSans(); }
-    sctx.fillStyle="rgba(0,0,0,.55)"; sctx.fillRect(0,SH/2-fs, SW, fs*2);
-    sctx.globalAlpha=a; sctx.fillStyle=col; sctx.shadowColor=col; sctx.shadowBlur=18;
-    sctx.fillText(msg,SW/2,SH/2+fs*0.35); sctx.globalAlpha=1; sctx.shadowBlur=0;
-    sctx.textAlign="left";
-  }
-}
-function rr(x,y,w,h,r){ sctx.beginPath(); sctx.moveTo(x+r,y);
-  sctx.arcTo(x+w,y,x+w,y+h,r); sctx.arcTo(x+w,y+h,x,y+h,r);
-  sctx.arcTo(x,y+h,x,y,r); sctx.arcTo(x,y,x+w,y,r); sctx.closePath(); }
-function getMono(){return 'Consolas,monospace';} function getSans(){return 'system-ui,sans-serif';}
+  if(msg){const a=0.55+0.45*Math.abs(Math.sin(S.t*4));sctx.textAlign="center";let fs=26;
+    sctx.font="bold "+fs+"px system-ui,sans-serif";let w=sctx.measureText(msg).width,av=SW-48;
+    if(w>av){fs=Math.floor(fs*av/w);sctx.font="bold "+fs+"px system-ui,sans-serif";}
+    sctx.fillStyle="rgba(0,0,0,.55)";sctx.fillRect(0,SH/2-fs,SW,fs*2);
+    sctx.globalAlpha=a;sctx.fillStyle=col;sctx.shadowColor=col;sctx.shadowBlur=18;
+    sctx.fillText(msg,SW/2,SH/2+fs*0.35);sctx.globalAlpha=1;sctx.shadowBlur=0;sctx.textAlign="left";}}
+function shade(hex,amt){const n=parseInt(hex.slice(1),16);let r=(n>>16)+amt,g=((n>>8)&255)+amt,b=(n&255)+amt;
+  r=Math.max(0,Math.min(255,r));g=Math.max(0,Math.min(255,g));b=Math.max(0,Math.min(255,b));
+  return"#"+((1<<24)+(r<<16)+(g<<8)+b).toString(16).slice(1);}
 
-// ===================== RENDER: GRAPHS =====================
-const gcv=document.getElementById("graphs"), gctx=gcv.getContext("2d");
-function fitGraphs(){ const w=gcv.parentElement.getBoundingClientRect().width-36;
-  gcv.width=w; gcv.height=300; }
-function plot(rect,arr,color,title,center,peakIdx,thr){
-  const {x,y,w,h}=rect;
-  gctx.fillStyle="#0a0f16"; gctx.fillRect(x,y,w,h);
-  gctx.strokeStyle="#1c2634"; gctx.strokeRect(x,y,w,h);
-  gctx.fillStyle="#7d8798"; gctx.font="11px "+getMono(); gctx.textAlign="left";
-  gctx.fillText(title,x+6,y+14);
-  const py=y+20, ph=h-26, pw=w-12, px0=x+6;
-  let ymax=1e-9; for(const val of arr) ymax=Math.max(ymax,Math.abs(val));
-  if(thr!=null&&!center){ let ty=py+ph-(thr/ymax)*(ph-2); ty=Math.max(py,Math.min(py+ph,ty));
-    gctx.strokeStyle="#ffb020"; gctx.beginPath(); gctx.moveTo(px0,ty); gctx.lineTo(px0+pw,ty); gctx.stroke(); }
-  gctx.strokeStyle=color; gctx.lineWidth=1.6; gctx.beginPath();
-  const step=Math.max(1,Math.floor(arr.length/pw));
-  let first=true;
-  for(let i=0;i<arr.length;i+=step){ const vx=px0+pw*i/(arr.length-1);
-    const vy=center? py+ph/2-(arr[i]/ymax)*(ph/2-2): py+ph-(arr[i]/ymax)*(ph-2);
-    if(first){gctx.moveTo(vx,vy);first=false;}else gctx.lineTo(vx,vy); }
-  gctx.stroke();
-  if(peakIdx!=null){ const vx=px0+pw*peakIdx/(arr.length-1);
-    const vy=py+ph-(arr[peakIdx]/ymax)*(ph-2);
-    gctx.strokeStyle="#fff"; gctx.beginPath(); gctx.arc(vx,vy,4,0,7); gctx.stroke(); }
-}
-function drawGraphs(){
-  const w=gcv.width; gctx.clearRect(0,0,w,300);
-  if(!S.last)return;
-  plot({x:0,y:0,w,h:140}, S.last.recv, "#ff4d6d", "Raw Signal  r(t)", true, null, null);
-  plot({x:0,y:150,w,h:140}, S.last.mf, "#39d98a", "Matched Filter  y(t)", false,
-       S.detected? S.last.pi:null, S.last.thr);
-}
+// ============ GRAPHS ============
+const gcv=document.getElementById("graphs"),gctx=gcv.getContext("2d");
+function fitGraphs(){gcv.width=gcv.parentElement.getBoundingClientRect().width-32;gcv.height=300;}
+function plot(rect,arr,color,title,center,peakIdx,thr){const {x,y,w,h}=rect;
+  gctx.fillStyle="#0a0f16";gctx.fillRect(x,y,w,h);gctx.strokeStyle="#1c2634";gctx.strokeRect(x,y,w,h);
+  gctx.fillStyle="#7d8798";gctx.font="11px Consolas,monospace";gctx.textAlign="left";gctx.fillText(title,x+6,y+14);
+  const py=y+20,ph=h-26,pw=w-12,px0=x+6;let ymax=1e-9;for(const v of arr)ymax=Math.max(ymax,Math.abs(v));
+  if(thr!=null&&!center){let ty=py+ph-(thr/ymax)*(ph-2);ty=Math.max(py,Math.min(py+ph,ty));
+    gctx.strokeStyle="#ffb020";gctx.beginPath();gctx.moveTo(px0,ty);gctx.lineTo(px0+pw,ty);gctx.stroke();}
+  gctx.strokeStyle=color;gctx.lineWidth=1.6;gctx.beginPath();const st=Math.max(1,Math.floor(arr.length/pw));let f=true;
+  for(let i=0;i<arr.length;i+=st){const vx=px0+pw*i/(arr.length-1),vy=center?py+ph/2-(arr[i]/ymax)*(ph/2-2):py+ph-(arr[i]/ymax)*(ph-2);
+    if(f){gctx.moveTo(vx,vy);f=false;}else gctx.lineTo(vx,vy);}gctx.stroke();
+  if(peakIdx!=null){const vx=px0+pw*peakIdx/(arr.length-1),vy=py+ph-(arr[peakIdx]/ymax)*(ph-2);
+    gctx.strokeStyle="#fff";gctx.beginPath();gctx.arc(vx,vy,4,0,7);gctx.stroke();}}
+function drawGraphs(){gctx.clearRect(0,0,gcv.width,300);if(!S.last)return;
+  plot({x:0,y:0,w:gcv.width,h:140},S.last.recv,"#ff4d6d","Raw Signal  r(t)",true,null,null);
+  plot({x:0,y:150,w:gcv.width,h:140},S.last.mf,"#39d98a","Matched Filter  y(t)",false,S.detected?S.last.pi:null,S.last.thr);}
 
-// ===================== DOM / METRICS =====================
+// ============ DOM METRICS ============
 const $=id=>document.getElementById(id);
-function drawDOM(){
-  $("m-true").textContent=S.range.toFixed(1)+" m";
-  $("m-raw").textContent=S.raw!=null? S.raw.toFixed(1)+" m":"-- LOST";
-  $("m-sm").textContent=S.sm!=null? S.sm.toFixed(1)+" m":"-- LOST";
-  $("m-sm").style.color=S.detected?"var(--green)":"var(--red)";
-  $("m-stop").textContent=S.dBrake.toFixed(1)+" / "+S.dReq.toFixed(1)+" m";
-  $("m-snr").textContent=(S.snr>0? (20*Math.log10(S.snr)).toFixed(1):"-∞")+" dB";
-  $("tgt-label").textContent=LABEL[S.target.beh];
+function drawDOM(){$("m-true").textContent=S.range.toFixed(1)+" m";
+  $("m-sm").textContent=S.sm!=null?S.sm.toFixed(1)+" m":"-- LOST";$("m-sm").style.color=S.detected?"var(--green)":"var(--red)";
+  $("m-req").textContent=S.dReq.toFixed(1)+" m";
+  $("m-ttc").textContent=isFinite(S.ttc)?S.ttc.toFixed(1)+" s":"—";
+  $("m-snr").textContent=(S.snr>0?(20*Math.log10(S.snr)).toFixed(0):"-∞")+" dB";
+  $("m-prec").textContent=S.prec>0?S.prec.toExponential(1):"0";
+  $("tgt-label").textContent=S.target.baseLabel;
   $("closing").textContent="closing Δv: "+(S.speedDiff>=0?"+":"")+S.speedDiff.toFixed(0)+" km/h";
   $("closing").style.color=S.speedDiff>DV_THR?"var(--red)":"var(--green)";
-  $("mode").textContent="TARGET MODE: "+(S.mode==="MANUAL"?"MANUAL [1/2/3]":"RANDOM");
-  const dec=$("dec"), c={CRUISE:"--cyan",AEB:"--red","LANE MERGE":"--green",FOLLOW:"--amber"}[S.decision]||"--cyan";
-  dec.textContent=S.decision; dec.style.color=`var(${c})`; dec.style.borderColor=`var(${c})`;
-  $("eqbox").style.display=S.showEq?"block":"none";
-}
+  const dec=$("dec"),c={CRUISE:"--cyan",AEB:"--red","LANE MERGE":"--green",FOLLOW:"--amber"}[S.decision]||"--cyan";
+  dec.textContent=S.decision;dec.style.color=`var(${c})`;dec.style.borderColor=`var(${c})`;}
 
-// ===================== CONTROLS =====================
-function bind(id,key,fmt){ const el=$(id), lv=$("lv-"+key.replace("speed","speed"));
-  el.addEventListener("input",()=>{ S[key]=parseFloat(el.value); if(!S.following&&key==="speed") S.ego.cruise=S.speed;
-    updateLabels(); }); }
-function updateLabels(){
-  $("lv-speed").textContent=S.speed.toFixed(0)+" km/h";
-  $("lv-fog").textContent=S.fog.toFixed(3);
-  $("lv-ptx").textContent=S.ptx.toFixed(2);
-  $("lv-rho").textContent=S.rho.toFixed(2);
-  $("lv-noise").textContent=S.noise.toFixed(2);
-}
+// ============ INFO / SPEC MODALS ============
+const overlay=$("overlay"),modal=$("modal");
+function openModal(html){modal.innerHTML='<button class="close" onclick="closeModal()">✕ close</button>'+html;overlay.classList.add("show");}
+window.closeModal=()=>overlay.classList.remove("show");
+overlay.addEventListener("click",e=>{if(e.target===overlay)closeModal();});
+const INFO={
+  braking:()=>{const VH=veh();return `<h3>Total Braking Distance</h3><div class="sub">מרחק העצירה המוחלט שמערכת ה-ADAS זקוקה לו כדי לעצור בבטחה.</div>
+    <div class="eq">D_required = V·(T_DSP + T_filter + T_actuator) + V²/(2·μ·g) + D_buffer</div>
+    <dl>
+    <div><dt>V</dt><dd>מהירות הרכב הנוכחית (m/s).</dd></div>
+    <div><dt>T_DSP ≈ 0.03 s</dt><dd>השהיית עיבוד החיישן וה-Matched Filter — הזמן מהחזרת הפולס ועד זיהוי המטרה.</dd></div>
+    <div><dt>T_filter ≈ 0.13 s</dt><dd>השהיית המסנן הדינמי (Moving Average, 8 פריימים) — הזמן לייצוב המדידה מהרעש.</dd></div>
+    <div><dt>T_actuator = ${VH.tAct}s</dt><dd>זמן התגובה המכני/הידראולי/${VH.act==="pneumatic"?"פנאומטי":"הידראולי"} של הבלמים ברכב הנבחר (${VH.name}).</dd></div>
+    <div><dt>V·(T_DSP+T_filter+T_actuator)</dt><dd><b>מרחק העיוורון</b> — המרחק שהרכב עובר במהירות מלאה עוד לפני שהבלמים נגעו בגלגל!</dd></div>
+    <div><dt>V²/(2·μ·g)</dt><dd>מרחק הבלימה המכני הפיזיקלי מרגע נעילת הבלמים, לפי אחיזת הצמיג (μ=${VH.mu}) ותאוצת הכובד (g=9.81).</dd></div>
+    <div><dt>D_buffer = 5 m</dt><dd>מרווח ביטחון קבוע למניעת עצירה "פגוש מול פגוש".</dd></div>
+    </dl>`;},
+  lidar:()=>`<h3>LiDAR Power &amp; RCS</h3><div class="sub">כמה אור חוזר מהמטרה — קריטי במיוחד להולך רגל.</div>
+    <div class="eq">P_rec = P_tx · ρ · (A_rx / (π·R²)) · e^(−2αR)</div>
+    <dl>
+    <div><dt>P_rec</dt><dd>עוצמת האות הפיזיקלי הנקלט בחיישן.</dd></div>
+    <div><dt>P_tx</dt><dd>עוצמת הפולס שהלייזר שידר.</dd></div>
+    <div><dt>ρ (Rho)</dt><dd>מקדם ההחזרה האופטי של המטרה. רכב ρ=0.5–0.8, הולך רגל בבגדים ρ=0.1.</dd></div>
+    <div><dt>A_rx / (π·R²)</dt><dd>שבר האור שנתפס ע"י עדשת המקלט, דועך כ-1/R².</dd></div>
+    <div><dt>e^(−2αR)</dt><dd>ניחות אטמוספרי דו-כיווני (Beer-Lambert).</dd></div>
+    </dl>
+    <div class="note">🚶 כיוון שלהולך רגל ρ=0.1, עוצמת האות P_rec צונחת פי 5 ביחס לרכב. זה מפיל את יחס האות-לרעש (SNR) ומאתגר את ה-Matched Filter לחלץ את הפיק מתוך רעש המקלט הגאוסי.</div>`,
+  scenario:()=>`<h3>Beer–Lambert Attenuation</h3><div class="sub">כיצד ערפל בולע את אלומת הלייזר.</div>
+    <div class="eq">I = I₀ · e^(−2αR)</div>
+    <dl>
+    <div><dt>α (Alpha)</dt><dd>מקדם הפיזור והבליעה של חלקיקי המים באוויר (ערפל/גשם).</dd></div>
+    <div><dt>R</dt><dd>המרחק למטרה. האור עובר הלוך-חזור, ולכן ×2.</dd></div>
+    <div><dt>I₀ → I</dt><dd>עוצמת האות ההתחלתית מול הנקלטת.</dd></div>
+    </dl>
+    <div class="note">🌫️ עוצמת האות דועכת אקספוננציאלית ככל שהערפל סמיך יותר (α גדול) או המרחק גדל — לכן בערפל כבד הלידאר "מתעוור" ומזהה מטרות רק מקרוב מאוד.</div>`,
+  vehicle:()=>specSheet(),
+};
+function specSheet(){const VH=veh(),v=S.ego?S.ego.speed:S.speed,ve=v/3.6;
+  const lat=T_DSP+T_FILTER+VH.tAct,dReact=ve*lat,dMech=ve*ve/(2*VH.decel),dReq=dReact+dMech+BUFFER;
+  return `<h3>${VH.name} — Physics Spec Sheet</h3><div class="sub">ערכים חיים לפי המהירות הנוכחית (${v.toFixed(0)} km/h).</div>
+    <div class="spec"><table>
+    <tr><td>Friction μ</td><td>${VH.mu}</td></tr>
+    <tr><td>Max acceleration</td><td>${VH.aMax.toFixed(1)} m/s²</td></tr>
+    <tr><td>Max deceleration (μg)</td><td>${VH.decel.toFixed(2)} m/s²</td></tr>
+    <tr><td>Actuator delay (${VH.act})</td><td>${VH.tAct.toFixed(2)} s</td></tr>
+    <tr><td>Total sensing+actuator latency</td><td>${lat.toFixed(2)} s</td></tr>
+    <tr><td>Blind (reaction) distance</td><td>${dReact.toFixed(1)} m</td></tr>
+    <tr><td>Mechanical braking distance</td><td>${dMech.toFixed(1)} m</td></tr>
+    <tr><td>Buffer</td><td>${BUFFER.toFixed(0)} m</td></tr>
+    <tr><td><b>D_required (total)</b></td><td>${dReq.toFixed(1)} m</td></tr>
+    </table></div>
+    <div class="note">💡 Double-click הרכב מכפיל את המהירות (×2) לבחינת תרחיש קיצון. שים לב איך מרחק העצירה גדל ריבועית עם המהירות.</div>`;}
+document.querySelectorAll(".infobtn").forEach(b=>b.addEventListener("click",e=>{
+  e.stopPropagation();openModal(INFO[b.dataset.info]());}));
+
+// ============ CONTROLS + MOUSE ============
+function updateLabels(){$("lv-speed").textContent=S.speed.toFixed(0)+" km/h";$("lv-fog").textContent=(+$("s-fog").value).toFixed(3);
+  $("lv-rho").textContent=(+$("s-rho").value).toFixed(2);$("lv-noise").textContent=(+$("s-noise").value).toFixed(2);}
 $("s-speed").addEventListener("input",e=>{S.speed=+e.target.value;updateLabels();});
 $("s-fog").addEventListener("input",e=>{S.fog=+e.target.value;updateLabels();});
-$("s-ptx").addEventListener("input",e=>{S.ptx=+e.target.value;updateLabels();});
 $("s-rho").addEventListener("input",e=>{S.rho=+e.target.value;updateLabels();});
 $("s-noise").addEventListener("input",e=>{S.noise=+e.target.value;updateLabels();});
-$("btn-eq").addEventListener("click",()=>{S.showEq=!S.showEq; $("btn-eq").classList.toggle("on",S.showEq);});
-window.addEventListener("keydown",e=>{
-  if(e.code==="Space"){e.preventDefault(); S.mode="RANDOM";S.forced=null;reset();}
-  else if(e.key==="1"){S.mode="MANUAL";S.forced="static";reset();}
-  else if(e.key==="2"){S.mode="MANUAL";S.forced="slow";reset();}
-  else if(e.key==="3"){S.mode="MANUAL";S.forced="brake_threat";reset();}
-  else if(e.key.toLowerCase()==="h"){S.showEq=!S.showEq;$("btn-eq").classList.toggle("on",S.showEq);}
-});
+$("scenario").addEventListener("change",e=>{S.scenKey=e.target.value;applyScenario();reset();});
+$("vehicle").addEventListener("change",e=>{S.vehKey=e.target.value;});
+window.addEventListener("keydown",e=>{if(e.code==="Space"){e.preventDefault();reset();}});
+// mouse: single click on host -> spec sheet; double click -> x2 speed
+function hitEgo(mx,my){const b=egoBox();return mx>=b.x&&mx<=b.x+b.w&&my>=b.y&&my<=b.y+b.h;}
+scene.addEventListener("click",e=>{const r=scene.getBoundingClientRect();
+  if(hitEgo(e.clientX-r.left,e.clientY-r.top))openModal(specSheet());});
+scene.addEventListener("dblclick",e=>{const r=scene.getBoundingClientRect();
+  if(hitEgo(e.clientX-r.left,e.clientY-r.top)){S.speed=Math.min(160,S.speed*2);
+    $("s-speed").value=S.speed;S.ego.cruise=S.speed;updateLabels();}});
 window.addEventListener("resize",()=>{fitScene();fitGraphs();});
 
-// ===================== LOOP =====================
-let last=0;
-function frame(ts){
-  const dt=Math.min((ts-last)/1000||0.016,0.05); last=ts;
-  LiDAR.setPulse(2);
-  update(dt); drawScene(); drawGraphs(); drawDOM();
-  requestAnimationFrame(frame);
-}
-fitScene(); fitGraphs(); updateLabels();
-requestAnimationFrame(frame);
+// ============ LOOP ============
+let last=0;function frame(ts){const dt=Math.min((ts-last)/1000||0.016,0.05);last=ts;
+  update(dt);drawScene();drawGraphs();drawDOM();requestAnimationFrame(frame);}
+applyScenario();reset();fitScene();fitGraphs();updateLabels();requestAnimationFrame(frame);
 </script>
 </body>
 </html>
