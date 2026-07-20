@@ -81,7 +81,12 @@
   .spec table{width:100%;border-collapse:collapse;margin-top:6px;font-size:.88rem}
   .spec td{padding:7px 4px;border-bottom:1px solid var(--edge);font-family:var(--mono)}
   .spec td:first-child{color:var(--ink)} .spec td:last-child{text-align:right;color:var(--cyan);font-weight:600;vertical-align:top;white-space:nowrap}
-  .spec .ex{color:var(--dim);font-family:var(--sans);font-size:.72rem;font-weight:400;margin-top:2px;white-space:normal}
+  .spec .ex{color:var(--dim);font-family:var(--sans);font-size:.72rem;font-weight:400;margin-top:3px;white-space:normal;line-height:1.5}
+  /* bidi: isolate English/math tokens inside Hebrew so they don't stick together */
+  .rtl{direction:rtl;text-align:right}
+  bdi{unicode-bidi:isolate}
+  .rtl bdi{margin:0 .18em;color:var(--cyan);font-family:var(--mono);font-size:.94em}
+  .modal dd.rtl bdi{color:var(--amber)}
   @media(max-width:900px){.app{grid-template-columns:1fr;grid-template-rows:auto 52vh auto}}
 </style>
 
@@ -150,26 +155,26 @@ const VEHICLES={
 };
 const SCEN={
   cutin:{type:"car",beh:"cutin",fog:0.02,rho:0.6,v0:60,lat0:1.0,label:"CUT-IN VEHICLE",
-    name:"Cut-In",desc:"vehicle merges in",icon:"cutin",eqs:["ttc","braking"],
-    challenge:"A car from the adjacent lane cuts in ahead of us — the system must detect it and slow / follow immediately."},
+    name:"Cut-In",desc:"רכב נכנס לנתיב",icon:"cutin",eqs:["ttc","braking"],
+    challenge:"רכב מהנתיב הסמוך חותך פנימה לפנינו — המערכת חייבת לזהות אותו ולהאט או לעקוב מיד."},
   hardbrake:{type:"car",beh:"brake",fog:0.02,rho:0.6,v0:80,lat0:0,label:"HARD-BRAKING LEAD",
-    name:"Hard Brake",desc:"lead brakes hard",icon:"brake",eqs:["braking","ttc"],
-    challenge:"The lead vehicle slams its brakes — emergency braking (AEB) all the way to a full stop."},
+    name:"Hard Brake",desc:"בלימת פתע לפנים",icon:"brake",eqs:["braking","ttc"],
+    challenge:"הרכב שלפנינו בולם בעוצמה — בלימת חירום AEB עד עצירה מלאה."},
   pedestrian:{type:"ped",beh:"cross",fog:0.03,rho:0.1,v0:0,lat0:-1.7,label:"PEDESTRIAN",
-    name:"Pedestrian",desc:"pedestrian crossing",icon:"ped",eqs:["lidar","braking"],
-    challenge:"A pedestrian crosses in a straight line. Low reflectivity (rho = 0.1) means a weak echo and low SNR — hard to detect, stop required."},
+    name:"Pedestrian",desc:"הולך רגל חוצה",icon:"ped",eqs:["lidar","braking"],
+    challenge:"הולך רגל חוצה בקו ישר. החזרה נמוכה ρ=0.1 יוצרת הד חלש ו-SNR נמוך — קשה לזיהוי, נדרשת עצירה."},
   child:{type:"child",beh:"chase",fog:0.02,rho:0.12,v0:0,lat0:-1.7,label:"CHILD CHASING BALL",
-    name:"Child + Ball",desc:"child runs to road",icon:"child",eqs:["lidar","ttc","braking"],
-    challenge:"A small child (low RCS) runs after a ball into the road, then stands still. Weak echo and a very short TTC."},
+    name:"Child + Ball",desc:"ילד רץ לכביש",icon:"child",eqs:["lidar","ttc","braking"],
+    challenge:"ילד קטן עם RCS נמוך רץ אחרי כדור לכביש ואז עומד במקום. הד חלש ו-TTC קצר מאוד."},
   fog:{type:"car",beh:"slow",fog:0.22,rho:0.6,v0:40,lat0:0,label:"LEAD IN HEAVY FOG",
-    name:"Heavy Fog",desc:"low visibility",icon:"fog",eqs:["beer","lidar","braking"],
-    challenge:"Heavy fog attenuates the laser beam (Beer-Lambert) — the target is only detected at very short range."},
+    name:"Heavy Fog",desc:"ראות נמוכה",icon:"fog",eqs:["beer","lidar","braking"],
+    challenge:"ערפל כבד מנחית את אלומת הלייזר לפי Beer-Lambert — המטרה מזוהה רק מטווח קצר מאוד."},
   static:{type:"obstacle",beh:"static",fog:0.02,rho:0.4,v0:0,lat0:0,label:"STATIC OBSTACLE",
-    name:"Static Obstacle",desc:"stationary hazard",icon:"obstacle",eqs:["matched","braking"],
-    challenge:"A sudden stationary obstacle (barrier / cone). The car stops or steers around it based on braking distance."},
+    name:"Static Obstacle",desc:"מכשול נייח",icon:"obstacle",eqs:["matched","braking"],
+    challenge:"מכשול נייח פתאומי כמו מחסום או קונוס. הרכב עוצר או עוקף לפי מרחק הבלימה."},
   roundabout:{type:"roundabout",beh:"curve",fog:0.02,rho:0.6,v0:0,lat0:0,label:"ROUNDABOUT ENTRY",
-    name:"Roundabout",desc:"curve speed zone",icon:"round",eqs:["curve","braking"],
-    challenge:"Entering a roundabout — the car must slow to the safe cornering speed Vmax = sqrt(mu*g*r), which depends on tyre grip."},
+    name:"Roundabout",desc:"כניסה לכיכר",icon:"round",eqs:["curve","braking"],
+    challenge:"כניסה לכיכר — הרכב חייב להאט למהירות הבטוחה Vmax=√(μgr), שתלויה באחיזת הצמיגים."},
 };
 
 // ===== LiDAR (unchanged) =====
@@ -356,23 +361,27 @@ function drawObstacle(x,y,sc){const s=sc; // traffic cone + barrier
   sctx.fillStyle="#fff";rr(x-6*s,y-6*s,12*s,4*s,1);sctx.fill();
   sctx.strokeStyle=S.detected?"#39d98a":"#ff4d6d";sctx.lineWidth=2.5;sctx.strokeRect(x-24*s,y-24*s,48*s,40*s);}
 
-function drawRound(x,y,sc){const s=sc,r=Math.max(30,52*s); // large roundabout
-  const cx=(SW/2),ry=r*0.62;                            // squashed ellipse for perspective
-  // outer ring road (asphalt band)
-  sctx.lineWidth=r*0.5;sctx.strokeStyle="#1a212c";sctx.beginPath();sctx.ellipse(cx,y,r,ry,0,0,7);sctx.stroke();
-  // ring edges (neon)
-  sctx.lineWidth=2.5;sctx.strokeStyle=S.detected?"rgba(57,217,138,.8)":"rgba(0,224,255,.5)";
-  sctx.beginPath();sctx.ellipse(cx,y,r*1.24,ry*1.24,0,0,7);sctx.stroke();
-  sctx.beginPath();sctx.ellipse(cx,y,r*0.76,ry*0.76,0,0,7);sctx.stroke();
-  // grassy central island
-  sctx.fillStyle="#16321f";sctx.beginPath();sctx.ellipse(cx,y,r*0.66,ry*0.66,0,0,7);sctx.fill();
-  sctx.fillStyle="#0e2016";for(let i=0;i<5;i++){const a=i*1.3;sctx.beginPath();
-    sctx.arc(cx+Math.cos(a)*r*0.3,y+Math.sin(a)*ry*0.3,r*0.06,0,7);sctx.fill();}
-  // circulating direction arrows
-  sctx.strokeStyle="#ffb020";sctx.lineWidth=3;for(let a=0;a<6;a++){const A=S.t*1.0+a*Math.PI/3;
-    sctx.beginPath();sctx.ellipse(cx,y,r,ry,0,A,A+0.5);sctx.stroke();
-    const ex=cx+Math.cos(A+0.5)*r,ey2=y+Math.sin(A+0.5)*ry;
-    sctx.beginPath();sctx.moveTo(ex,ey2);sctx.lineTo(ex-6*Math.cos(A+0.2),ey2-6*Math.sin(A+0.2));sctx.stroke();}}
+function drawRound(x,y,sc){const cx=SW/2,r=Math.max(24,46*sc),ry=r*0.5,s=sc; // central island of the roundabout
+  // painted circular lane line around the island (white)
+  sctx.strokeStyle="rgba(235,238,242,.55)";sctx.lineWidth=Math.max(2,3*s);sctx.setLineDash([10*s,8*s]);
+  sctx.beginPath();sctx.ellipse(cx,y,r*1.12,ry*1.12,0,0,7);sctx.stroke();sctx.setLineDash([]);
+  // raised curb (concrete ring)
+  sctx.fillStyle="#4a515e";sctx.beginPath();sctx.ellipse(cx,y,r,ry,0,0,7);sctx.fill();
+  sctx.fillStyle="#2f3542";sctx.beginPath();sctx.ellipse(cx,y-ry*0.08,r*0.9,ry*0.9,0,0,7);sctx.fill();
+  // grass mound
+  sctx.fillStyle="#1e6437";sctx.beginPath();sctx.ellipse(cx,y-ry*0.12,r*0.8,ry*0.8,0,0,7);sctx.fill();
+  sctx.fillStyle="#268047";sctx.beginPath();sctx.ellipse(cx,y-ry*0.28,r*0.62,ry*0.55,0,0,7);sctx.fill();
+  // little bushes on the island
+  for(let i=0;i<3;i++){const bx=cx+(i-1)*r*0.34,by=y-ry*0.3;
+    sctx.fillStyle="#164a2a";sctx.beginPath();sctx.arc(bx,by,r*0.15,0,7);sctx.fill();
+    sctx.fillStyle="#2e7d49";sctx.beginPath();sctx.arc(bx-2*s,by-2*s,r*0.1,0,7);sctx.fill();}
+  // detection outline
+  if(S.detected){sctx.strokeStyle="rgba(57,217,138,.85)";sctx.lineWidth=2.5*s;
+    sctx.beginPath();sctx.ellipse(cx,y,r,ry,0,0,7);sctx.stroke();}
+  // curved YIELD arrow hinting the way around (right side)
+  sctx.strokeStyle="#ffb020";sctx.lineWidth=2.4*s;sctx.beginPath();sctx.ellipse(cx,y,r*1.12,ry*1.12,0,-0.6,0.5);sctx.stroke();
+  const A=0.5,ex=cx+Math.cos(A)*r*1.12,ey=y+Math.sin(A)*ry*1.12;
+  sctx.beginPath();sctx.moveTo(ex,ey);sctx.lineTo(ex-6*s,ey-2*s);sctx.moveTo(ex,ey);sctx.lineTo(ex-2*s,ey-6*s);sctx.stroke();}
 
 function drawBeam(){if(S.blinded)return;const yF=r2y(S.range),fx=wX(S.ego.x,EY()),fy=EY()-40,egoLat=S.ego.x*LANE_W,col=S.detected?"57,217,138":"255,77,109";
   const pL=wX((egoLat+S.range*Math.tan(-FOV))/LANE_W,yF),pR=wX((egoLat+S.range*Math.tan(FOV))/LANE_W,yF);
@@ -434,45 +443,46 @@ function drawDOM(){$("m-true").textContent=S.range.toFixed(1)+" m";$("m-sm").tex
 // ===== EQUATION REGISTRY (per-term explanations) =====
 const EQ={
   braking:{short:"D_req = V·T_lat + V²/(2μg) + D_buf",title:"Total Braking Distance",
-    sub:"The distance the ADAS needs to come to a safe stop.",full:"D_required = V·(T_DSP + T_filter + T_actuator) + V²/(2·μ·g) + D_buffer",
-    terms:()=>{const VH=veh();return[["V","current vehicle speed (m/s)."],
-      ["T_DSP ≈ 0.03 s","sensor + matched-filter processing delay — from echo return to target detection."],
-      ["T_filter ≈ 0.13 s","dynamic-filter delay (moving average, 8 frames) to settle the measurement from noise."],
-      [`T_actuator = ${VH.tAct}s`,`mechanical brake response (${VH.act}) of the ${VH.name}.`],
-      ["V·ΣT  (blind distance)","distance travelled at full speed before the brakes even touch the wheel."],
-      ["V²/(2·μ·g)",`mechanical braking distance once the brakes lock (μ = ${VH.mu}, g = 9.81).`],
-      ["D_buffer = 5 m","fixed safety margin to avoid a bumper-to-bumper stop."]];},
-    note:"Braking distance grows with the SQUARE of speed (V²) — which makes speed the single most dangerous factor."},
+    sub:"מרחק העצירה שהמערכת זקוקה לו כדי לעצור בבטחה.",full:"D_required = V·(T_DSP + T_filter + T_actuator) + V²/(2·μ·g) + D_buffer",
+    terms:()=>{const VH=veh();return[["V","מהירות הרכב הנוכחית ב-m/s."],
+      ["T_DSP ≈ 0.03 s","השהיית עיבוד החיישן וה-Matched Filter — מרגע חזרת הפולס ועד זיהוי המטרה."],
+      ["T_filter ≈ 0.13 s","השהיית המסנן הדינמי, ממוצע נע על 8 frames, לייצוב המדידה מהרעש."],
+      [`T_actuator = ${VH.tAct}s`,`זמן תגובת הבלמים מסוג ${VH.act} ברכב ${VH.name}.`],
+      ["V·ΣT","מרחק העיוורון — המרחק שהרכב עובר במהירות מלאה עוד לפני שהבלמים נגעו בגלגל."],
+      ["V²/(2·μ·g)",`מרחק הבלימה המכני מרגע נעילת הבלמים, לפי אחיזה μ=${VH.mu} וכובד g=9.81.`],
+      ["D_buffer = 5 m","מרווח ביטחון קבוע נגד עצירה פגוש מול פגוש."]];},
+    note:"מרחק הבלימה גדל בריבוע המהירות V² — ולכן המהירות היא הגורם המסוכן ביותר."},
   lidar:{short:"P_rec = P_tx·ρ·(A_rx/πR²)·e^(−2αR)",title:"LiDAR Power & RCS",
-    sub:"How much light returns from the target — critical for a pedestrian.",full:"P_rec = P_tx · ρ · (A_rx / (π·R²)) · e^(−2αR)",
-    terms:()=>[["P_rec","optical power received back at the sensor."],["P_tx","power of the transmitted laser pulse."],
-      ["ρ (rho)","target reflectivity: a car is 0.5–0.8, a pedestrian ≈ 0.1."],
-      ["A_rx / (π·R²)","fraction of light captured by the receiver, falling off as 1/R²."],["e^(−2αR)","two-way atmospheric attenuation."]],
-    note:"A pedestrian at ρ = 0.1 returns 5× less power than a car — dropping the SNR and forcing the matched filter to pull the peak out of the noise."},
-  beer:{short:"I = I₀·e^(−2αR)",title:"Beer–Lambert Attenuation",sub:"How fog absorbs the laser beam.",
-    full:"I = I₀ · e^(−2αR)",terms:()=>[["α (alpha)","scattering / absorption coefficient of water droplets (fog)."],
-      ["R","range to target — light travels there and back, hence ×2."],["I₀ → I","transmitted vs. received intensity."]],
-    note:"Signal decays exponentially with fog density and range — so in heavy fog the LiDAR only sees targets close up."},
-  ttc:{short:"TTC = R / (V − V_target)",title:"Time To Collision",sub:"Seconds until we reach the target at the current rate.",
-    full:"TTC = R / (V_ego − V_target)",terms:()=>[["R","current range to the target (m)."],
-      ["V_ego − V_target","closing rate (m/s). Negative means we are pulling away."],["TTC","time to impact if nothing changes."]],
-    note:"Low TTC = high urgency. Real ADAS systems trigger a warning, then braking, when TTC drops below a threshold."},
-  curve:{short:"V_max = √(μ·g·r)",title:"Safe Cornering Speed",sub:"Max speed to enter the roundabout without skidding.",
-    full:"V_max = √(μ · g · r)",terms:()=>{const VH=veh();return[["μ",`tyre grip (${VH.name}: μ = ${VH.mu}).`],
-      ["g","gravitational acceleration, 9.81 m/s²."],["r","roundabout radius (here 25 m)."],
-      ["V_max",`speed where centripetal demand = max friction → ${(curveVsafe()).toFixed(0)} km/h.`]];},
-    note:"A high-grip car (Tesla, μ=0.9) can enter faster; a truck (μ=0.6) must slow down much more."},
-  matched:{short:"y(t) = r(t) ⋆ s(t)",title:"Matched Filter Detection",sub:"Pulling the weak echo out of the receiver noise.",
-    full:"y(t) = r(t) ⋆ s(t) ,   R̂ = c·τ̂/2",terms:()=>[["r(t)","received signal = echo + Gaussian noise (AWGN)."],
-      ["s(t)","the known transmitted pulse (reference template)."],["⋆ (correlation)","maximizes SNR and forms a sharp peak (pulse compression)."],
-      ["R̂ = c·τ̂/2","range computed from the detected peak time."]],
-    note:"The detection threshold is the noise floor (MAD) × 6 — which prevents false alarms."},
+    sub:"כמה אור חוזר מהמטרה — קריטי במיוחד להולך רגל.",full:"P_rec = P_tx · ρ · (A_rx / (π·R²)) · e^(−2αR)",
+    terms:()=>[["P_rec","עוצמת האות האופטי הנקלט חזרה בחיישן."],["P_tx","עוצמת הפולס שהלייזר שידר."],
+      ["ρ (rho)","מקדם ההחזרה של המטרה: רכב 0.5–0.8, הולך רגל בערך 0.1."],
+      ["A_rx / (π·R²)","שבר האור שנתפס במקלט, דועך כמו 1/R²."],["e^(−2αR)","ניחות אטמוספרי דו-כיווני."]],
+    note:"הולך רגל עם ρ=0.1 מחזיר פי 5 פחות אנרגיה מרכב — מה שמפיל את ה-SNR ומאלץ את ה-Matched Filter לחלץ את הפיק מהרעש."},
+  beer:{short:"I = I₀·e^(−2αR)",title:"Beer–Lambert Attenuation",sub:"כיצד ערפל בולע את אלומת הלייזר.",
+    full:"I = I₀ · e^(−2αR)",terms:()=>[["α (alpha)","מקדם פיזור ובליעה של חלקיקי מים באוויר, כלומר ערפל."],
+      ["R","המרחק למטרה. האור עובר הלוך ושוב, ולכן כפול 2."],["I₀ → I","עוצמת האות ההתחלתית מול הנקלטת."]],
+    note:"האות דועך אקספוננציאלית עם צפיפות הערפל והמרחק — ולכן בערפל כבד הלידאר מזהה רק מטרות קרובות."},
+  ttc:{short:"TTC = R / (V − V_target)",title:"Time To Collision",sub:"תוך כמה שניות נגיע למטרה בקצב הנוכחי.",
+    full:"TTC = R / (V_ego − V_target)",terms:()=>[["R","המרחק הנוכחי למטרה ב-m."],
+      ["V_ego − V_target","קצב ההתקרבות ב-m/s. ערך שלילי אומר שאנחנו מתרחקים."],["TTC","הזמן עד פגיעה אם שום דבר לא ישתנה."]],
+    note:"TTC נמוך פירושו דחיפות גבוהה. מערכות ADAS מפעילות התראה ואז בלימה כשה-TTC יורד מתחת לסף."},
+  curve:{short:"V_max = √(μ·g·r)",title:"Safe Cornering Speed",sub:"המהירות המרבית להיכנס לכיכר בלי להחליק.",
+    full:"V_max = √(μ · g · r)",terms:()=>{const VH=veh();return[["μ",`אחיזת הצמיג ברכב ${VH.name}, כאן μ=${VH.mu}.`],
+      ["g","תאוצת הכובד, 9.81 m/s²."],["r","רדיוס הכיכר, כאן 25 m."],
+      ["V_max",`המהירות שבה כוח הצנטריפטה שווה לחיכוך המרבי, כאן ${(curveVsafe()).toFixed(0)} km/h.`]];},
+    note:"רכב עם אחיזה גבוהה כמו Tesla ב-μ=0.9 יכול להיכנס מהר יותר, ומשאית ב-μ=0.6 חייבת להאט הרבה יותר."},
+  matched:{short:"y(t) = r(t) ⋆ s(t)",title:"Matched Filter Detection",sub:"חילוץ ההד החלש מתוך רעש המקלט.",
+    full:"y(t) = r(t) ⋆ s(t) ,   R̂ = c·τ̂/2",terms:()=>[["r(t)","האות הנקלט: הד ועוד רעש גאוסי לבן, כלומר AWGN."],
+      ["s(t)","הפולס הידוע ששודר, שמשמש כתבנית ייחוס."],["⋆","קורלציה שממקסמת את ה-SNR ויוצרת פיק חד, כלומר pulse compression."],
+      ["R̂ = c·τ̂/2","המרחק מחושב מזמן הפיק שנמצא."]],
+    note:"סף הזיהוי נקבע לפי רצפת הרעש MAD כפול 6 — וכך נמנעות אזעקות שווא."},
 };
+function bidi(s){return String(s).replace(/([^֐-׿\s]+)/g,"<bdi>$1</bdi>");}
 function renderScenMath(){const sc=SCEN[S.scenKey];$("scenmath-title").textContent="Scenario Math · "+sc.name;
   const box=$("scenmath");box.innerHTML="";
   sc.eqs.forEach(key=>{const e=EQ[key];const d=document.createElement("div");d.className="eqcard";
     d.innerHTML=`<div class="h"><span class="t">${e.title}</span><button class="infobtn" data-eq="${key}">i</button></div>
-      <div class="f">${e.short}</div><div class="d">${e.sub}</div>`;box.appendChild(d);});
+      <div class="f">${e.short}</div><div class="d rtl">${bidi(e.sub)}</div>`;box.appendChild(d);});
   box.querySelectorAll(".infobtn").forEach(b=>b.addEventListener("click",ev=>{ev.stopPropagation();openEq(b.dataset.eq);}));}
 
 // ===== MODALS =====
@@ -480,25 +490,25 @@ const overlay=$("overlay"),modal=$("modal");
 function openModal(html){modal.innerHTML='<button class="close" onclick="closeModal()">✕ close</button>'+html;overlay.classList.add("show");}
 window.closeModal=()=>{S.specOpen=false;overlay.classList.remove("show");};
 overlay.addEventListener("click",e=>{if(e.target===overlay)closeModal();});
-function openEq(key){S.specOpen=false;const e=EQ[key];let dl="";for(const [t,d] of e.terms())dl+=`<div><dt>${t}</dt><dd>${d}</dd></div>`;
-  openModal(`<h3>${e.title}</h3><div class="sub">${e.sub}</div><div class="eq">${e.full}</div><dl>${dl}</dl><div class="note">${e.note}</div>`);}
-function specRow(label,value,explain){return `<tr><td>${label}<div class="ex">${explain}</div></td><td>${value}</td></tr>`;}
+function openEq(key){S.specOpen=false;const e=EQ[key];let dl="";for(const [t,d] of e.terms())dl+=`<div><dt>${t}</dt><dd class="rtl">${bidi(d)}</dd></div>`;
+  openModal(`<h3>${e.title}</h3><div class="sub rtl">${bidi(e.sub)}</div><div class="eq">${e.full}</div><dl>${dl}</dl><div class="note rtl">${bidi(e.note)}</div>`);}
+function specRow(label,value,explain){return `<tr><td>${label}<div class="ex rtl">${bidi(explain)}</div></td><td>${value}</td></tr>`;}
 function specSheetInner(){const VH=veh(),v=S.ego?S.ego.speed:S.speed,ve=v/3.6,lat=T_DSP+T_FILTER+VH.tAct,dReact=ve*lat,dMech=ve*ve/(2*VH.decel),dReq=dReact+dMech+BUFFER;
-  return `<h3>${VH.name} — Physics Spec Sheet</h3><div class="sub">Live values at the current speed (${v.toFixed(0)} km/h). They update as the car accelerates or brakes.</div>
+  return `<h3>${VH.name} — Spec Sheet</h3><div class="sub rtl">${bidi(`ערכים חיים לפי המהירות הנוכחית ${v.toFixed(0)} km/h. הם מתעדכנים כשהרכב מאיץ או בולם.`)}</div>
     <div class="spec"><table>
-    ${specRow("Current speed",`${v.toFixed(0)} km/h`,"how fast the host car is going right now")}
-    ${specRow("Friction μ",`${VH.mu}`,"grip between tyre and road — higher = shorter braking, faster cornering")}
-    ${specRow("Max acceleration",`${VH.aMax.toFixed(1)} m/s²`,"how hard this vehicle can speed up")}
-    ${specRow("Max deceleration (μg)",`${VH.decel.toFixed(2)} m/s²`,"hardest possible braking = μ × g")}
-    ${specRow("Actuator delay",`${VH.tAct.toFixed(2)} s`,`${VH.act} brake lag — time from command to the pads gripping`)}
-    ${specRow("Total latency",`${lat.toFixed(2)} s`,"sensor + filter + actuator delay combined")}
-    ${specRow("Blind distance",`${dReact.toFixed(1)} m`,"metres travelled at full speed during that latency, before braking begins")}
-    ${specRow("Mechanical braking",`${dMech.toFixed(1)} m`,"metres needed to stop once the brakes are applied = V²/(2μg)")}
-    ${specRow("Safety buffer","5 m","fixed gap kept behind the target")}
-    ${specRow("<b>D_required (total)</b>",`<b>${dReq.toFixed(1)} m</b>`,"total distance to stop safely = blind + mechanical + buffer")}
-    ${specRow("Safe roundabout speed",`${curveVsafe().toFixed(0)} km/h`,"max cornering speed for this grip = √(μ·g·r)")}
+    ${specRow("Current speed",`${v.toFixed(0)} km/h`,"כמה מהר הרכב נוסע כרגע.")}
+    ${specRow("Friction μ",`${VH.mu}`,"אחיזה בין הצמיג לכביש — גבוה יותר פירושו בלימה קצרה יותר וסיבוב מהיר יותר.")}
+    ${specRow("Max acceleration",`${VH.aMax.toFixed(1)} m/s²`,"כמה חזק הרכב מסוגל להאיץ.")}
+    ${specRow("Max deceleration",`${VH.decel.toFixed(2)} m/s²`,"הבלימה החזקה ביותר האפשרית, שווה למכפלה μ×g.")}
+    ${specRow("Actuator delay",`${VH.tAct.toFixed(2)} s`,`השהיית בלמים מסוג ${VH.act} — הזמן מהפקודה ועד שהרפידות תופסות.`)}
+    ${specRow("Total latency",`${lat.toFixed(2)} s`,"סכום ההשהיות של החיישן, המסנן והאקטואטור.")}
+    ${specRow("Blind distance",`${dReact.toFixed(1)} m`,"המרחק שהרכב עובר במהירות מלאה במהלך ההשהיה, לפני שהבלימה מתחילה.")}
+    ${specRow("Mechanical braking",`${dMech.toFixed(1)} m`,"המרחק הדרוש לעצירה מרגע הפעלת הבלמים, שווה ל-V²/(2μg).")}
+    ${specRow("Safety buffer","5 m","מרווח קבוע שנשמר מאחורי המטרה.")}
+    ${specRow("<b>D_required</b>",`<b>${dReq.toFixed(1)} m</b>`,"סך המרחק לעצירה בטוחה: עיוורון ועוד מכני ועוד מרווח.")}
+    ${specRow("Roundabout speed",`${curveVsafe().toFixed(0)} km/h`,"המהירות המרבית לכיכר לפי האחיזה, שווה ל-√(μ·g·r).")}
     </table></div>
-    <div class="note">💡 Double-click the car to double its speed (×2), then watch D_required grow with the square of speed.</div>`;}
+    <div class="note rtl">${bidi("טיפ: לחיצה כפולה על הרכב מכפילה את המהירות ×2 — ואפשר לראות איך D_required גדל בריבוע המהירות.")}</div>`;}
 function openSpec(){S.specOpen=true;openModal(`<div id="specWrap">${specSheetInner()}</div>`);}
 
 // ===== SCENARIO PICKER (window with preview screenshots) =====
@@ -531,11 +541,11 @@ function scenPreview(key){const sc=SCEN[key];const road=`<polygon points="72,14 
     <rect x="7" y="7" width="${act.length*6.2+14}" height="17" rx="8" fill="#0b1119" stroke="${ac}" stroke-opacity=".6"/>
     <text x="15" y="19" font-size="10" fill="${ac}" font-family="monospace">${act}</text></svg>`;}
 function updateScenBtn(){const sc=SCEN[S.scenKey];$("scenBtn").innerHTML=
-  `<span class="em">${SC_EMOJI[sc.icon]}</span><span><span class="nm">${sc.name}</span><br><span class="ds">${sc.desc}</span></span><span class="go">CHANGE ▸</span>`;}
+  `<span class="em">${SC_EMOJI[sc.icon]}</span><span><span class="nm">${sc.name}</span><br><span class="ds rtl">${bidi(sc.desc)}</span></span><span class="go">CHANGE ▸</span>`;}
 function openScenarioPicker(){let cards="";
   Object.entries(SCEN).forEach(([key,sc])=>{cards+=`<div class="pcard${key===S.scenKey?" on":""}" data-pick="${key}">
-    ${scenPreview(key)}<div class="body"><div class="nm">${SC_EMOJI[sc.icon]} ${sc.name}</div><div class="ch">${sc.challenge}</div></div></div>`;});
-  openModal(`<h3>Choose a Scenario</h3><div class="sub">Each tile previews the situation, the challenge, and the system's expected response.</div><div class="pickgrid">${cards}</div>`);
+    ${scenPreview(key)}<div class="body"><div class="nm">${SC_EMOJI[sc.icon]} ${sc.name}</div><div class="ch rtl">${bidi(sc.challenge)}</div></div></div>`;});
+  openModal(`<h3>בחירת תרחיש</h3><div class="sub rtl">${bidi("כל כרטיס מציג את המצב, האתגר, והתגובה הצפויה של המערכת.")}</div><div class="pickgrid">${cards}</div>`);
   modal.querySelectorAll(".pcard").forEach(c=>c.addEventListener("click",()=>{
     S.scenKey=c.dataset.pick;applyScenario();reset();updateScenBtn();closeModal();}));}
 $("scenBtn").addEventListener("click",openScenarioPicker);
