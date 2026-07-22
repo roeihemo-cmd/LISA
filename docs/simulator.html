@@ -833,13 +833,17 @@ function scenPreview(key){const sc=SCEN[key];const road=`<polygon points="72,14 
   if(key==="cutin"){el=`<rect x="150" y="48" width="22" height="16" rx="4" fill="#7a3038" stroke="#39d98a"/>
     <path d="M148 56 L120 60" stroke="#ffb020" stroke-width="2" fill="none"/><path d="M126 57 L120 60 L126 63" stroke="#ffb020" stroke-width="2" fill="none"/>
     <rect x="100" y="52" width="20" height="15" rx="4" fill="#39414d"/>`;act="→ FOLLOW";ac="#ffb020";}
-  else if(key==="brake"){el=`<rect x="99" y="46" width="22" height="17" rx="4" fill="#7a3038" stroke="#39d98a"/>
-    <circle cx="103" cy="62" r="2.6" fill="#ff2d3a"/><circle cx="117" cy="62" r="2.6" fill="#ff2d3a"/>`;act="🚨 AEB STOP";ac="#ff4d6d";}
-  else if(key==="ped"){el=`<g fill="rgba(235,238,242,.55)"><rect x="66" y="54" width="10" height="22"/><rect x="86" y="54" width="10" height="22"/><rect x="106" y="54" width="10" height="22"/><rect x="126" y="54" width="10" height="22"/><rect x="146" y="54" width="10" height="22"/></g>
-    <g><circle cx="110" cy="42" r="6" fill="#e2cba6"/><rect x="103" y="47" width="14" height="18" rx="4" fill="#8a94a4"/>
-    <rect x="98" y="49" width="4" height="13" rx="2" fill="#8a94a4"/><rect x="118" y="49" width="4" height="13" rx="2" fill="#8a94a4"/>
-    <rect x="104" y="64" width="4.5" height="12" fill="#464e5c"/><rect x="111.5" y="64" width="4.5" height="12" fill="#464e5c"/></g>
-    <path d="M120 40 L136 40" stroke="#ffb020" stroke-width="2.5"/><path d="M131 36 L136 40 L131 44" stroke="#ffb020" stroke-width="2.5" fill="none"/>`;act="🚨 AEB STOP";ac="#ff4d6d";}
+  else if(key==="brake"){el=`<g>
+    <rect x="94" y="42" width="32" height="24" rx="5" fill="#7a3038" stroke="#ff5560" stroke-width="1.5"/>
+    <rect x="98" y="46" width="24" height="9" rx="2" fill="#3a1418"/>
+    <rect x="96" y="61" width="6" height="4" rx="1.5" fill="#ff2d3a"/><rect x="118" y="61" width="6" height="4" rx="1.5" fill="#ff2d3a"/>
+    <circle cx="99" cy="63" r="5" fill="#ff2d3a" opacity=".35"/><circle cx="121" cy="63" r="5" fill="#ff2d3a" opacity=".35"/>
+    <path d="M100 74 L100 88 M110 74 L110 90 M120 74 L120 88" stroke="#5a6472" stroke-width="1.5" stroke-dasharray="3 3"/></g>`;act="🚨 AEB STOP";ac="#ff4d6d";}
+  else if(key==="ped"){el=`<g fill="rgba(235,238,242,.6)"><rect x="60" y="52" width="12" height="26"/><rect x="82" y="52" width="12" height="26"/><rect x="104" y="52" width="12" height="26"/><rect x="126" y="52" width="12" height="26"/><rect x="148" y="52" width="12" height="26"/></g>
+    <g><circle cx="110" cy="38" r="7" fill="#e2cba6"/><rect x="102" y="44" width="16" height="20" rx="5" fill="#8a94a4"/>
+    <rect x="96" y="46" width="5" height="15" rx="2.5" fill="#8a94a4"/><rect x="119" y="46" width="5" height="15" rx="2.5" fill="#8a94a4"/>
+    <rect x="103" y="63" width="5" height="14" fill="#464e5c"/><rect x="112" y="63" width="5" height="14" fill="#464e5c"/></g>
+    <path d="M122 38 L140 38" stroke="#ffb020" stroke-width="2.5"/><path d="M135 34 L140 38 L135 42" stroke="#ffb020" stroke-width="2.5" fill="none"/>`;act="🚨 AEB STOP";ac="#ff4d6d";}
   else if(key==="child"){el=`<g><circle cx="108" cy="46" r="5" fill="#f2c191"/><rect x="102" y="50" width="12" height="14" rx="3" fill="#ff7043"/>
     <rect x="98" y="51" width="3.5" height="10" rx="1" fill="#ff7043"/><rect x="114" y="51" width="3.5" height="10" rx="1" fill="#ff7043"/>
     <rect x="103" y="63" width="3.6" height="10" fill="#2f5aa8"/><rect x="109" y="63" width="3.6" height="10" fill="#2f5aa8"/>
