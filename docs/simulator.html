@@ -90,6 +90,14 @@
     letter-spacing:.02em;margin-bottom:4px;direction:ltr;unicode-bidi:isolate}
   .modal .termrow .exp{color:var(--ink);font-size:.88rem;line-height:1.65;direction:rtl;text-align:right}
   .modal .termrow .exp bdi{color:var(--cyan);margin:0 .12em}
+  .modal .derivbox{margin-top:16px;background:#0a1119;border:1px solid var(--edge);border-radius:10px;padding:12px 14px}
+  .modal .derivbox .dt{font-family:var(--mono);font-size:.7rem;color:var(--cyan);letter-spacing:.14em;text-transform:uppercase;margin-bottom:10px}
+  .modal .dstep{display:flex;gap:12px;align-items:baseline;padding:7px 0;border-bottom:1px solid var(--edge-soft,#1a2231);counter-increment:dstep}
+  .modal .dstep:last-child{border-bottom:none}
+  .modal .dstep::before{content:counter(dstep);font-family:var(--mono);color:var(--faint);font-size:.72rem;min-width:14px}
+  .modal .dstep .f{font-family:var(--mono);color:var(--green);font-size:.92rem;flex-shrink:0;direction:ltr;unicode-bidi:isolate}
+  .modal .dstep .n{font-size:.82rem;color:var(--dim);direction:rtl;text-align:right;flex:1}
+  .modal .derivbox{counter-reset:dstep}
   .modal .note{background:#0a1512;border:1px solid #17352a;border-radius:8px;padding:11px 13px;margin-top:12px;color:var(--green);font-size:.86rem;line-height:1.6}
   .modal .close{float:left;background:none;border:1px solid var(--edge);color:var(--dim);border-radius:8px;padding:5px 12px;cursor:pointer;font-family:var(--mono);font-size:.8rem}
   .spec table{width:100%;border-collapse:collapse;margin-top:6px;font-size:.88rem}
@@ -691,7 +699,12 @@ const EQ={
       ["V·ΣT — Blind Distance","המרחק שהרכב עובר במהירות מלאה לפני שהבלמים נגעו בגלגל."],
       ["V²/(2μg) — Mechanical","מרחק הבלימה המכני מרגע נעילת הבלמים, לפי אחיזת הצמיג והכובד."],
       ["D_buffer = 5m","מרווח ביטחון קבוע נגד עצירה פגוש מול פגוש."]];},
-    note:"מרחק הבלימה גדל בריבוע המהירות — ולכן המהירות היא הגורם המסוכן ביותר."},
+    note:"מרחק הבלימה גדל בריבוע המהירות — ולכן המהירות היא הגורם המסוכן ביותר.",
+    deriv:[["F_friction = μ·N = μ·m·g","כוח החיכוך המרבי של הצמיגים."],
+      ["F = m·a  ⟹  a = F/m","החוק השני של ניוטון."],
+      ["a_max = (μ·m·g) / m","הצבת כוח החיכוך במקום F."],
+      ["a_max = μ·g","המסה m מצטמצמת."]],
+    derivNote:"מסקנה: תאוצת הבלימה המרבית תלויה אך ורק במקדם האחיזה μ ובכובד g — ואינה תלויה במסת הרכב!"},
   lidar:{short:"P_rec = P_tx·ρ·(D²/4R²)·e^(−2αR)",title:"LiDAR Power & RCS",
     sub:"כמה אור חוזר מהמטרה — קריטי במיוחד להולך רגל.",full:"P_rec = P_tx · ρ · (D² / (4·R²)) · e^(−2αR)",
     terms:()=>[["P_rec — Received Power","הספק האור החוזר הנקלט במערכת."],
@@ -700,7 +713,12 @@ const EQ={
       ["D — Lens Diameter","קוטר עדשת המקלט. במערכות לרכב טיפוסי בין 20 ל-50 מילימטר, כלומר 0.02 עד 0.05 מטר."],
       ["R — Range","המרחק הפיזיקלי למטרה, במטרים."],
       ["α — Attenuation","מקדם הניחות של האוויר — רמת הערפל והאבק."]],
-    note:"לדוגמה, הולך רגל טיפוסי עם ρ בערך 0.1 מחזיר פי 5 פחות אנרגיה מרכב — מה שמפיל את יחס האות-לרעש ומאלץ את המסנן המתואם לחלץ את הפיק מהרעש."},
+    note:"לדוגמה, הולך רגל טיפוסי עם ρ בערך 0.1 מחזיר פי 5 פחות אנרגיה מרכב — מה שמפיל את יחס האות-לרעש ומאלץ את המסנן המתואם לחלץ את הפיק מהרעש.",
+    deriv:[["P_tx","הספק הלייזר המשודר."],
+      ["× ρ","הכפלה במקדם ההחזרה של המטרה."],
+      ["× D² / 4R²","היחס הגיאומטרי: שטח עדשת המקלט (קוטר D) מול אלומת האור המתפשטת במרחק R."],
+      ["× e^(−2αR)","ניחות ביר-למברט בדרך הלוך-חזור (2R) דרך ערפל/אבק בשיעור α."]],
+    derivNote:"מכפלת ארבעת הגורמים נותנת את ההספק החוזר בפועל — שדועך מהר עם המרחק ועם הערפל."},
   beer:{short:"I = I₀·e^(−2αR)",title:"Beer–Lambert Attenuation",sub:"כיצד ערפל בולע את אלומת הלייזר.",
     full:"I = I₀ · e^(−2αR)",terms:()=>[["α — Alpha","מקדם פיזור ובליעה של חלקיקי מים באוויר, כלומר ערפל."],
       ["R — Range","המרחק למטרה. האור עובר הלוך ושוב, ולכן כפול 2."],["I₀ → I","עוצמת האות ההתחלתית מול הנקלטת."]],
@@ -713,7 +731,13 @@ const EQ={
     full:"V_max = √(μ · g · r)",terms:()=>{const VH=veh();return[["μ — Friction",`אחיזת הצמיג בכביש ברכב הנבחר, כאן ${VH.mu}.`],
       ["g — Gravity","תאוצת הכובד, 9.81 מטר לשנייה בריבוע."],["r — Radius","רדיוס הכיכר, כאן 25 מטר."],
       ["V_max",`המהירות שבה כוח הצנטריפטה שווה לחיכוך המרבי, כאן ${(curveVsafe()).toFixed(0)} קמ״ש.`]];},
-    note:"רכב עם אחיזה גבוהה יכול להיכנס מהר יותר, ומשאית עם אחיזה נמוכה חייבת להאט הרבה יותר."},
+    note:"רכב עם אחיזה גבוהה יכול להיכנס מהר יותר, ומשאית עם אחיזה נמוכה חייבת להאט הרבה יותר.",
+    deriv:[["F_c = m·v² / r","הכוח הצנטריפטלי הנדרש לפנייה."],
+      ["F_friction = μ·m·g","כוח החיכוך המרבי המונע החלקה."],
+      ["m·v²/r = μ·m·g","השוואת הכוחות ברגע סף ההחלקה."],
+      ["v² = μ·g·r","צמצום המסה m והכפלה ב-r."],
+      ["V_max = √(μ·g·r)","הוצאת שורש לשני האגפים."]],
+    derivNote:"זו המהירות המרבית שבה הרכב עובר פנייה ברדיוס r מבלי לאבד אחיזה ולהחליק."},
   matched:{short:"y(t) = r(t) ⋆ s(t)",title:"Matched Filter Detection",sub:"חילוץ ההד החלש מתוך רעש המקלט.",
     full:"y(t) = r(t) ⋆ s(t) ,   R̂ = c·τ̂/2",terms:()=>[["r(t) — Received","האות הנקלט: הד ועוד רעש גאוסי לבן."],
       ["s(t) — Reference","הפולס הידוע ששודר, המשמש כתבנית ייחוס."],["⋆ — Correlation","קורלציה שממקסמת את יחס האות-לרעש ויוצרת פיק חד."],
@@ -735,7 +759,11 @@ window.closeModal=()=>{S.specOpen=false;overlay.classList.remove("show");};
 overlay.addEventListener("click",e=>{if(e.target===overlay)closeModal();});
 function openEq(key){S.specOpen=false;const e=EQ[key];let dl="";
   for(const [t,d] of e.terms())dl+=`<div class="termrow"><div class="sym">${t}</div><div class="exp">${bidi(d)}</div></div>`;
-  openModal(`<h3>${e.title}</h3><div class="sub rtl">${bidi(e.sub)}</div><div class="eq">${e.full}</div><dl>${dl}</dl><div class="note rtl">${bidi(e.note)}</div>`);}
+  let deriv="";
+  if(e.deriv){const steps=e.deriv.map(([f,n])=>`<div class="dstep"><span class="f">${f}</span><span class="n">${bidi(n)}</span></div>`).join("");
+    deriv=`<div class="derivbox"><div class="dt">Mathematical Derivation · פיתוח מתמטי</div>${steps}</div>`
+      +(e.derivNote?`<div class="note rtl">${bidi(e.derivNote)}</div>`:"");}
+  openModal(`<h3>${e.title}</h3><div class="sub rtl">${bidi(e.sub)}</div><div class="eq">${e.full}</div><dl>${dl}</dl><div class="note rtl">${bidi(e.note)}</div>${deriv}`);}
 function specRow(label,value,explain){return `<tr><td>${label}<div class="ex rtl">${bidi(explain)}</div></td><td>${value}</td></tr>`;}
 function specSheetInner(){const VH=veh(),v=S.ego?S.ego.speed:S.speed,ve=v/3.6,lat=T_DSP+T_FILTER+VH.tAct,dReact=ve*lat,dMech=ve*ve/(2*VH.decel),dReq=dReact+dMech+BUFFER;
   const actHe=VH.act==="pneumatic"?"פנאומטית":"הידראולית";
