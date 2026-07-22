@@ -225,11 +225,11 @@ class Target{constructor(s,vsafe){this.type=s.type;this.beh=s.beh;this.speed=s.b
   update(dt){this.timer+=dt;
     if(this.beh==="brake"&&this.timer>=3){this.braking=true;this.speed=Math.max(0,this.speed-LEAD_HARD_DECEL*dt);}
     else if(this.beh==="cutin"){this.lat+=(0-this.lat)*Math.min(1,0.4*dt);if(this.timer>2)this.lat=Math.max(0,this.lat-0.35*dt);}
-    else if(this.beh==="cross"){                 // straight perpendicular crossing
-      const spd=this.type==="child"?1.1:0.85;    // child runs a bit faster
+    else if(this.beh==="cross"){                 // smooth, steady linear perpendicular crossing
+      const spd=this.type==="child"?1.05:0.8;    // constant lateral speed (no jitter)
       this.lat+=this.dir*spd*dt;
       if(this.lat>1.9){this.lat=1.9;this.dir=-1;}if(this.lat<-1.9){this.lat=-1.9;this.dir=1;}
-      this.ballLat=this.lat+this.dir*0.65;}}      // ball rolls ahead in the crossing direction
+      const bt=this.lat+this.dir*0.6;this.ballLat+=(bt-this.ballLat)*Math.min(1,5*dt);}}  // ball eases ahead (no teleport)
   inLane(){return Math.abs(this.lat)<0.6;}}
 
 // ===== STATE =====
@@ -237,7 +237,7 @@ const S={speed:90,fog:0.02,rho:0.6,noise:0.15,vehKey:"tesla",scenKey:"cutin",
   ego:null,target:null,range:START_RANGE,scroll:0,t:0,decision:"CRUISE",committed:false,
   following:false,ma:new MA(MA_WIN),detected:false,raw:null,sm:null,dMech:0,dReq:0,snr:0,
   speedDiff:0,ttc:Infinity,prec:0,scan:[],last:null,blinded:false,stopTimer:0,specOpen:false,
-  inevitable:false,dMinStop:0,frozen:false,freezeTimer:0,freezeMsg:"",freezeCol:"#39d98a",
+  inevitable:false,dMinStop:0,frozen:false,freezeTimer:0,freezeMsg:"",freezeCol:"#39d98a",lastSm:null,holdT:0,
   roundAngle:Math.PI/2,leadAngle:Math.PI/2+0.55,roundEgo:null,roundEntry:0,roundPhase:"entry",exitProg:0,prevEgoX:0,steerAng:0};
 function veh(){return VEHICLES[S.vehKey];}
 function curveVsafe(){return Math.sqrt(veh().mu*G*ROUND_R)*3.6;}
@@ -246,7 +246,7 @@ function applyScenario(){const sc=SCEN[S.scenKey];S.fog=sc.fog;S.rho=sc.rho;
 function reset(){const sc=SCEN[S.scenKey];S.range=START_RANGE;S.ego=new Ego(S.speed);
   S.target=new Target(sc,curveVsafe());S.decision="CRUISE";S.committed=false;S.following=false;S.ma.reset();S.stopTimer=0;
   S.roundAngle=Math.PI/2;S.leadAngle=Math.PI/2+0.6;S.roundEntry=0;S.roundPhase="entry";S.exitProg=0;
-  S.frozen=false;S.inevitable=false;}
+  S.frozen=false;S.inevitable=false;S.lastSm=null;S.holdT=0;}
 
 // ===== UPDATE (decision uses detailed D_required) =====
 function freeze(msg,col){S.frozen=true;S.freezeTimer=0;S.freezeMsg=msg;S.freezeCol=col;}
@@ -261,7 +261,12 @@ function update(dt){S.t+=dt;
   const inLane=(S.target.type==="ped"||S.target.type==="child")?Math.abs(S.target.lat)<1.3
     :(S.target.inLane()||S.target.type==="roundabout");
   const raw=(det.detected&&inLane)?det.meas:null;S.raw=raw;
-  const sm=raw!=null?S.ma.push(raw):(S.ma.reset(),null);S.sm=sm;S.blinded=!det.detected;
+  // Track-hold: keep the last known range briefly (0.6 s) so a target very close
+  // to the beam edge doesn't flicker to "-- LOST" right before impact/stop.
+  let sm;
+  if(raw!=null){sm=S.ma.push(raw);S.lastSm=sm;S.holdT=0;}
+  else{S.holdT+=dt;if(S.holdT<0.6&&S.lastSm!=null)sm=S.lastSm;else{S.ma.reset();sm=null;S.lastSm=null;}}
+  S.sm=sm;S.blinded=(sm==null);
   const ve=v.speed/3.6,latency=T_DSP+T_FILTER+VH.tAct,dReact=ve*latency,dMech=ve*ve/(2*VH.decel),dReq=dReact+dMech+BUFFER;
   S.dMech=dMech;S.dReq=dReq;S.speedDiff=v.speed-S.target.speed;
   const closing=(v.speed-S.target.speed)/3.6;S.ttc=(closing>0.2&&S.detected)?S.range/closing:Infinity;
@@ -322,8 +327,9 @@ function update(dt){S.t+=dt;
   const vt=S.target.speed/3.6,rel=v.avoided?-(Math.abs(ve)+4):(vt-ve);
   S.range=Math.max(1.5,Math.min(MAXV,S.range+rel*dt));S.scroll=(S.scroll+ve*dt*9)%2000;
   // --- outcome detection -> freeze the screen for 3 s, then reset ---
+  const inFront=Math.abs(v.x-S.target.lat)<0.45;   // target laterally in front of our bumper
   if(v.speed<0.5&&(v.braking||S.committed)&&S.range>2.2)freeze("VEHICLE SAFELY STOPPED","#39d98a"); // braked to a full stop (any distance ahead of the target)
-  else if(S.range<=2.2&&v.speed>2&&!v.avoided&&!v.merging)freeze("COLLISION OCCURRED","#ff2532");   // actually reached the target while moving
+  else if(S.range<=2.2&&v.speed>2&&inFront&&!v.avoided&&!v.merging)freeze("COLLISION OCCURRED","#ff2532"); // reached the target while it is physically in front
   else if(v.avoided&&S.range>=MAXV-2)freeze("COLLISION AVOIDED — LANE CHANGE","#39d98a");}          // steered clear
 function runScan(){const pts=[],R=S.range,egoLat=S.ego.x*LANE_W,tLat=S.target.lat*LANE_W;
   for(let i=0;i<LINES;i++){const ang=-FOV+(2*FOV)*i/(LINES-1),lat=egoLat+R*Math.tan(ang);
