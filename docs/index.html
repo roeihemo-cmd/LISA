@@ -128,7 +128,7 @@
 
 <div class="app">
   <div class="col panel">
-    <div class="brand">LiDAR · ADAS<small>Perception &amp; Control Bench · build v7</small></div>
+    <div class="brand">LiDAR · ADAS<small>Perception &amp; Control Bench · build v8</small></div>
     <div class="sec">Scenario Select</div>
     <button class="scenbtn" id="scenBtn"></button>
 
@@ -840,13 +840,13 @@ function scenPreview(key){const sc=SCEN[key];const road=`<polygon points="72,14 
   if(key==="cutin"){el=`<rect x="150" y="48" width="22" height="16" rx="4" fill="#7a3038" stroke="#39d98a"/>
     <path d="M148 56 L120 60" stroke="#ffb020" stroke-width="2" fill="none"/><path d="M126 57 L120 60 L126 63" stroke="#ffb020" stroke-width="2" fill="none"/>
     <rect x="100" y="52" width="20" height="15" rx="4" fill="#39414d"/>`;act="→ FOLLOW";ac="#ffb020";}
-  else if(key==="brake"){el=`<g>
+  else if(key==="hardbrake"){el=`<g>
     <rect x="94" y="42" width="32" height="24" rx="5" fill="#7a3038" stroke="#ff5560" stroke-width="1.5"/>
     <rect x="98" y="46" width="24" height="9" rx="2" fill="#3a1418"/>
     <rect x="96" y="61" width="6" height="4" rx="1.5" fill="#ff2d3a"/><rect x="118" y="61" width="6" height="4" rx="1.5" fill="#ff2d3a"/>
     <circle cx="99" cy="63" r="5" fill="#ff2d3a" opacity=".35"/><circle cx="121" cy="63" r="5" fill="#ff2d3a" opacity=".35"/>
     <path d="M100 74 L100 88 M110 74 L110 90 M120 74 L120 88" stroke="#5a6472" stroke-width="1.5" stroke-dasharray="3 3"/></g>`;act="🚨 AEB STOP";ac="#ff4d6d";}
-  else if(key==="ped"){el=`<g fill="rgba(235,238,242,.6)"><rect x="60" y="52" width="12" height="26"/><rect x="82" y="52" width="12" height="26"/><rect x="104" y="52" width="12" height="26"/><rect x="126" y="52" width="12" height="26"/><rect x="148" y="52" width="12" height="26"/></g>
+  else if(key==="pedestrian"){el=`<g fill="rgba(235,238,242,.6)"><rect x="60" y="52" width="12" height="26"/><rect x="82" y="52" width="12" height="26"/><rect x="104" y="52" width="12" height="26"/><rect x="126" y="52" width="12" height="26"/><rect x="148" y="52" width="12" height="26"/></g>
     <g><circle cx="110" cy="38" r="7" fill="#e2cba6"/><rect x="102" y="44" width="16" height="20" rx="5" fill="#8a94a4"/>
     <rect x="96" y="46" width="5" height="15" rx="2.5" fill="#8a94a4"/><rect x="119" y="46" width="5" height="15" rx="2.5" fill="#8a94a4"/>
     <rect x="103" y="63" width="5" height="14" fill="#464e5c"/><rect x="112" y="63" width="5" height="14" fill="#464e5c"/></g>
@@ -858,12 +858,12 @@ function scenPreview(key){const sc=SCEN[key];const road=`<polygon points="72,14 
     <path d="M118 44 L134 44" stroke="#ffb020" stroke-width="2.5"/><path d="M129 40 L134 44 L129 48" stroke="#ffb020" stroke-width="2.5" fill="none"/></g>`;act="🚨 AEB STOP";ac="#ff4d6d";}
   else if(key==="fog"){el=`<rect x="99" y="50" width="22" height="16" rx="4" fill="#39414d" stroke="#8aa0b5"/>
     <rect x="14" y="14" width="192" height="102" fill="#c8ced6" opacity=".38"/>`;act="⚠️ SENSOR BLIND";ac="#ffb020";}
-  else if(key==="obstacle"){el=`<g>
+  else if(key==="static"){el=`<g>
     <polygon points="98,52 94,66 102,66" fill="#ff6a2a"/><polygon points="110,52 106,66 114,66" fill="#ff6a2a"/><polygon points="122,52 118,66 126,66" fill="#ff6a2a"/>
     <rect x="86" y="55" width="6" height="11" rx="2" fill="#ffcf33"/><circle cx="89" cy="50" r="3" fill="#f2c191"/>
     <line x1="132" y1="66" x2="132" y2="50" stroke="#7a8290" stroke-width="2"/><circle cx="132" cy="46" r="6" fill="#ff9500"/>
     <text x="132" y="48" font-size="4" fill="#1a1200" text-anchor="middle" font-family="sans-serif">STOP</text></g>`;act="🚧 AEB STOP";ac="#e8a020";}
-  else if(key==="round"){el=`<circle cx="110" cy="52" r="17" fill="none" stroke="#ffb020" stroke-width="4"/>
+  else if(key==="roundabout"){el=`<circle cx="110" cy="52" r="17" fill="none" stroke="#ffb020" stroke-width="4"/>
     <circle cx="110" cy="52" r="7" fill="#1c2634"/>`;act="SLOW → Vmax";ac="#ffb020";}
   return `<svg viewBox="0 0 220 130">${road}${el}${ego}
     <rect x="7" y="7" width="${act.length*6.2+14}" height="17" rx="8" fill="#0b1119" stroke="${ac}" stroke-opacity=".6"/>
