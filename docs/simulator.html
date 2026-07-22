@@ -285,17 +285,23 @@ function update(dt){S.t+=dt;
   }
 
   const pedlike=(S.target.type==="ped"||S.target.type==="child");
-  // Warning distance is the SAME for every vehicle (reference decel) so that the
-  // actual stopping outcome is governed purely by each car's a = μ·g.
-  const A_REF=5.0, dTrigger=ve*ve/(2*A_REF)+ve*0.3+BUFFER;
   const aebLatency=T_DSP+T_FILTER+VH.tAct;
-  const dSensor=sm,threat=det.detected&&inLane&&dSensor!=null&&dSensor<dTrigger&&!v.avoided;
+  const dSensor=sm;
+  // can this vehicle still physically stop from the current range (a = μ·g)?
+  const canStop=dSensor!=null&&dSensor>=S.dMinStop+2;
+  // REACT AS SOON AS A HAZARD IS DETECTED IN OUR LANE — decide brake vs. steer immediately.
+  const threat=det.detected&&inLane&&dSensor!=null&&!v.avoided;
   if(threat&&!S.committed){
     if(pedlike){
-      if(S.ttc<=1.2||v.speed>55){S.decision="AEB";v.braking=true;v.brakeTarget=0;v.coast=aebLatency;}
+      if(S.ttc<=1.2||v.speed>55||!canStop){S.decision="AEB";v.braking=true;v.brakeTarget=0;v.coast=aebLatency;}
       else{S.decision="LANE MERGE";if(!v.merging){v.merging=true;v.tx=1;}}
-    }else if(S.speedDiff>DV_THR){S.decision="AEB";v.braking=true;v.brakeTarget=Math.max(0,S.target.speed);v.coast=aebLatency;}
-    else{S.decision="LANE MERGE";if(!v.merging){v.merging=true;v.tx=1;}}S.committed=true;
+      S.committed=true;
+    }else if(S.speedDiff>DV_THR){
+      if(canStop){S.decision="AEB";v.braking=true;v.brakeTarget=Math.max(0,S.target.speed);v.coast=aebLatency;} // can stop → brake now
+      else{S.decision="LANE MERGE";if(!v.merging){v.merging=true;v.tx=1;}}                                       // can't stop → steer around
+      S.committed=true;
+    }
+    // closing slowly (Δv ≤ 15): leave it to adaptive-cruise / follow, no hard commit
   }else if(!threat&&!S.committed)S.decision="CRUISE";
   if(v.braking)v.brakeTarget=Math.max(0,S.target.speed);
   if(S.decision==="AEB"&&v.braking&&S.target.speed>1&&!S.target.braking&&v.speed<=S.target.speed+0.5){v.braking=false;S.following=true;S.decision="FOLLOW";}
