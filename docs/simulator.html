@@ -236,14 +236,14 @@ const S={speed:90,fog:0.02,rho:0.6,noise:0.15,vehKey:"tesla",scenKey:"cutin",
   following:false,ma:new MA(MA_WIN),detected:false,raw:null,sm:null,dMech:0,dReq:0,snr:0,
   speedDiff:0,ttc:Infinity,prec:0,scan:[],last:null,blinded:false,stopTimer:0,specOpen:false,
   inevitable:false,dMinStop:0,frozen:false,freezeTimer:0,freezeMsg:"",freezeCol:"#39d98a",lastSm:null,holdT:0,
-  roundAngle:Math.PI/2,leadAngle:Math.PI/2+0.55,roundEgo:null,roundEntry:0,roundPhase:"entry",exitProg:0,prevEgoX:0,steerAng:0};
+  roundAngle:Math.PI/2,leadAngle:Math.PI/2+0.55,roundEgo:null,roundEntry:0,roundPhase:"entry",exitProg:0,prevEgoX:0,steerAng:0,rndT:0,curve:0};
 function veh(){return VEHICLES[S.vehKey];}
 function curveVsafe(){return Math.sqrt(veh().mu*G*ROUND_R)*3.6;}
 function applyScenario(){const sc=SCEN[S.scenKey];S.fog=sc.fog;S.rho=sc.rho;
   document.getElementById("s-fog").value=sc.fog;document.getElementById("s-rho").value=sc.rho;updateLabels();renderScenMath();}
 function reset(){const sc=SCEN[S.scenKey];S.range=START_RANGE;S.ego=new Ego(S.speed);
   S.target=new Target(sc,curveVsafe());S.decision="CRUISE";S.committed=false;S.following=false;S.ma.reset();S.stopTimer=0;
-  S.roundAngle=Math.PI/2;S.leadAngle=Math.PI/2+0.6;S.roundEntry=0;S.roundPhase="entry";S.exitProg=0;
+  S.roundAngle=Math.PI/2;S.leadAngle=Math.PI/2+0.6;S.roundEntry=0;S.roundPhase="entry";S.exitProg=0;S.rndT=0;S.curve=0;
   S.frozen=false;S.inevitable=false;S.lastSm=null;S.holdT=0;}
 
 // ===== UPDATE (decision uses detailed D_required) =====
@@ -277,23 +277,24 @@ function update(dt){S.t+=dt;
   if(S.inevitable){v.merging=false;v.tx=v.x;if(!v.braking){v.braking=true;v.coast=T_DSP+T_FILTER+VH.tAct;}v.brakeTarget=0;S.decision="AEB";S.committed=true;}
   runScan();
 
-  // ---- ROUNDABOUT: ego follows the circular lane around the central island ----
+  // ---- ROUNDABOUT (ego perspective): the ROAD curves via a Bezier steering profile ----
   if(S.target.type==="roundabout"){
     const vsafe=curveVsafe();S.inevitable=false;
-    v.cruise=vsafe;v.braking=false;v.merging=false;
+    v.braking=false;v.merging=false;v.cruise=S.speed;   // keep the driver's speed — is it safe for the corner?
+    S.range=42;                                          // island sits ahead for the visual
+    const TE=1.6,TA=3.2,TX=1.6,total=TE+TA+TX,sm=p=>p*p*(3-2*p);
+    let curve=0;
+    if(S.rndT<TE)curve=sm(S.rndT/TE);                    // Entry: ease the wheel in
+    else if(S.rndT<TE+TA)curve=1;                        // Apex: hold the turn around the island
+    else if(S.rndT<total)curve=1-sm((S.rndT-TE-TA)/TX);  // Exit: ease back to straight
+    S.curve=curve*0.9;
+    S.target.lat=-S.curve*1.6;                           // island sits on the inside of the turn
     S.decision=(v.speed>vsafe+2)?"SLOWING":"ROUNDABOUT";
-    v.update(dt,VH);
-    const vms=v.speed/3.6,omega=vms/ROUND_R,lomega=(vsafe/3.6)/ROUND_R;
-    S.leadAngle+=lomega*dt;
-    // 3-phase drive-through: Entry -> Curved Driving (~270deg) -> Exit -> next approach
-    if(S.roundPhase==="entry"){S.roundEntry+=dt;if(S.roundEntry>=1.6){S.roundPhase="loop";S.roundAngle=Math.PI/2;}}
-    else if(S.roundPhase==="loop"){S.roundAngle+=omega*dt;
-      if(S.roundAngle>=Math.PI/2+1.5*Math.PI){S.roundPhase="exit";S.exitProg=0;}}
-    else{S.exitProg+=(0.35+vms*0.03)*dt;if(S.exitProg>=1)reset();}   // drive out, then loop to next
-    let gap=((S.leadAngle-S.roundAngle)%(2*Math.PI)+2*Math.PI)%(2*Math.PI);
-    if(gap>Math.PI)gap-=2*Math.PI;
-    S.range=(S.roundPhase==="loop")?Math.max(5,Math.min(MAXV,Math.abs(gap)*ROUND_R+8)):50;
-    S.scroll=(S.scroll+vms*dt*9)%2000;
+    // physics: too fast for the corner (V > V_max = √(μgr)) → skid out
+    if(S.rndT>TE&&S.rndT<total&&v.speed>vsafe+1&&!S.frozen)freeze("COLLISION OCCURRED","#ff2532");
+    else if(S.rndT>=total&&!S.frozen)freeze("ROUNDABOUT CLEARED SAFELY","#39d98a");
+    v.update(dt,VH);S.rndT+=dt;
+    S.scroll=(S.scroll+(v.speed/3.6)*dt*9)%2000;
     return;
   }
 
@@ -343,7 +344,8 @@ function fitScene(){const r=scene.parentElement.getBoundingClientRect();SW=scene
 const HZ=()=>SH*0.20,EY=()=>SH*0.84;
 function r2y(r){const f=Math.max(0,Math.min(1,r/MAXV));return EY()+(HZ()-EY())*f;}
 function rHalf(y){const f=(y-HZ())/(EY()-HZ());return SW*(0.05+0.42*f);}
-function wX(wx,y){return SW/2+wx*rHalf(y)*0.55;}
+function curveOff(y){const f=1-(y-HZ())/(EY()-HZ());return (S.curve||0)*SW*0.34*f*f;} // road bend (0 at ego, grows to horizon)
+function wX(wx,y){return SW/2+wx*rHalf(y)*0.55+curveOff(y);}
 function rr(x,y,w,h,rad){sctx.beginPath();sctx.moveTo(x+rad,y);sctx.arcTo(x+w,y,x+w,y+h,rad);sctx.arcTo(x+w,y+h,x,y+h,rad);sctx.arcTo(x,y+h,x,y,rad);sctx.arcTo(x,y,x+w,y,rad);sctx.closePath();}
 function shade(hex,amt){const n=parseInt(hex.slice(1),16);let r=(n>>16)+amt,g=((n>>8)&255)+amt,b=(n&255)+amt;
   r=Math.max(0,Math.min(255,r));g=Math.max(0,Math.min(255,g));b=Math.max(0,Math.min(255,b));return"#"+((1<<24)+(r<<16)+(g<<8)+b).toString(16).slice(1);}
@@ -426,9 +428,9 @@ function drawSteerWheel(x,y,r,ang){const g=sctx;g.save();g.translate(x,y);
   g.fillStyle="rgba(125,135,152,.9)";g.font="10px Consolas,monospace";g.textAlign="center";g.fillText("STEERING",x,y+r+20);g.textAlign="left";}
 
 function drawScene(){sctx.clearRect(0,0,SW,SH);sctx.fillStyle="#070a10";sctx.fillRect(0,0,SW,SH);
-  const cx=SW/2,hy=HZ(),ey=EY(),th=rHalf(hy),bh=rHalf(ey+40);
-  sctx.fillStyle="#141a24";sctx.beginPath();sctx.moveTo(cx-th,hy);sctx.lineTo(cx+th,hy);sctx.lineTo(cx+bh,ey+40);sctx.lineTo(cx-bh,ey+40);sctx.closePath();sctx.fill();
-  sctx.strokeStyle="rgba(0,224,255,.5)";sctx.lineWidth=3;for(const sd of[-1,1]){sctx.beginPath();sctx.moveTo(cx+sd*th,hy);sctx.lineTo(cx+sd*bh,ey+40);sctx.stroke();}
+  const cx=SW/2,hy=HZ(),ey=EY(),th=rHalf(hy),bh=rHalf(ey+40),ct=curveOff(hy),cb=curveOff(ey+40);
+  sctx.fillStyle="#141a24";sctx.beginPath();sctx.moveTo(cx-th+ct,hy);sctx.lineTo(cx+th+ct,hy);sctx.lineTo(cx+bh+cb,ey+40);sctx.lineTo(cx-bh+cb,ey+40);sctx.closePath();sctx.fill();
+  sctx.strokeStyle="rgba(0,224,255,.5)";sctx.lineWidth=3;for(const sd of[-1,1]){sctx.beginPath();sctx.moveTo(cx+sd*th+ct,hy);sctx.lineTo(cx+sd*bh+cb,ey+40);sctx.stroke();}
   for(const ln of[-0.5,0.5]){for(let k=-1;k<40;k++){const yy=hy+((k*36+S.scroll)%(ey-hy+60));if(yy<hy||yy>ey+40)continue;const y2=Math.min(yy+16,ey+40);
     sctx.strokeStyle="rgba(220,224,230,.65)";sctx.lineWidth=1+3*(yy-hy)/(ey-hy);sctx.beginPath();sctx.moveTo(wX(ln,yy),yy);sctx.lineTo(wX(ln,y2),y2);sctx.stroke();}}
   drawTarget();drawBeam();drawHost();drawFog();drawHUD();}
@@ -553,9 +555,7 @@ function drawBeam(){if(S.blinded)return;const yF=r2y(S.range),fx=wX(S.ego.x,EY()
   sctx.beginPath();sctx.moveTo(fx,fy);sctx.lineTo(tx,yF);sctx.stroke();sctx.setLineDash([]);}
 
 function hostShape(){return veh().shape;}
-function egoBox(){const sp=hostShape();
-  if(S.scenKey==="roundabout"&&S.roundEgo)return{x:S.roundEgo.x-sp.w/2,y:S.roundEgo.y-sp.h/2,w:sp.w,h:sp.h};
-  const y=EY(),x=wX(S.ego.x,y);return{x:x-sp.w/2,y:y-sp.h/2,w:sp.w,h:sp.h};}
+function egoBox(){const sp=hostShape(),y=EY(),x=wX(S.ego.x,y);return{x:x-sp.w/2,y:y-sp.h/2,w:sp.w,h:sp.h};}
 function drawHost(){drawVehicle(wX(S.ego.x,EY()),EY(),1.0,hostShape(),S.ego.braking&&S.ego.speed>0.1,true);}
 
 let fogP=null;function drawFog(){const f=Math.max(0,Math.min(1,S.fog/0.3));if(f<=0.01)return;
@@ -626,8 +626,8 @@ function drawDOM(){$("m-true").textContent=S.range.toFixed(1)+" m";$("m-sm").tex
   $("tgt-label").textContent=S.target.baseLabel;$("closing").textContent="closing Δv: "+(S.speedDiff>=0?"+":"")+S.speedDiff.toFixed(0)+" km/h";
   $("closing").style.color=S.speedDiff>DV_THR?"var(--red)":"var(--green)";
   const dec=$("dec");
-  if(S.frozen){const isCol=S.freezeCol==="#ff2532";
-    dec.textContent=isCol?"COLLISION OCCURRED":(S.freezeMsg.indexOf("AVOIDED")>=0?"COLLISION AVOIDED":"SAFELY STOPPED");
+  if(S.frozen){const isCol=S.freezeCol==="#ff2532";const m=S.freezeMsg;
+    dec.textContent=isCol?"COLLISION OCCURRED":(m.indexOf("AVOIDED")>=0?"COLLISION AVOIDED":(m.indexOf("ROUNDABOUT")>=0?"ROUNDABOUT CLEAR":"SAFELY STOPPED"));
     dec.style.color=S.freezeCol;dec.style.borderColor=S.freezeCol;dec.classList.toggle("danger",isCol);}
   else if(S.inevitable){dec.textContent="COLLISION INEVITABLE";dec.style.color="#ff2532";dec.style.borderColor="#ff2532";dec.classList.add("danger");}
   else{dec.classList.remove("danger");
@@ -645,7 +645,7 @@ function drawDOM(){$("m-true").textContent=S.range.toFixed(1)+" m";$("m-sm").tex
   // sensor-limitation note: in fog the LiDAR range collapses (Beer-Lambert)
   const fn=$("fognote");
   if(S.fog>0.06&&(S.blinded||S.inevitable)){fn.style.display="flex";
-    fn.innerHTML=`<div class="t">⚠ SENSOR LIMITATION — FOG</div><div class="d">Fog collapses the LiDAR detection range (Beer–Lambert e^−2αR), so the target is seen too late to stop. LiDAR alone cannot solve this — a fog-penetrating <b>RADAR</b> and sensor fusion are required in real ADAS.</div>`;}
+    fn.innerHTML=`<div class="t rtl">${bidi("⚠️ מגבלת חיישן – תנאי ערפל")}</div><div class="d rtl">${bidi("הערפל מקטין משמעותית את טווח הגילוי של ה-LiDAR (בגלל ניחות אור e^−2αR), והמטרה מזוהה מאוחר מדי. חיישן לייזר בלבד אינו מסוגל להתמודד עם ערפל כבד – נדרש שילוב של חיישן מכ\"ם (RADAR) והיתוך חיישנים (Sensor Fusion) בדיוק כמו ברכבים אוטונומיים אמיתיים.")}</div>`;}
   else fn.style.display="none";}
 
 // ===== EQUATION REGISTRY (per-term explanations) =====
@@ -787,8 +787,7 @@ window.addEventListener("resize",()=>{fitScene();fitGraphs();});
 
 // ===== LOOP =====
 let last=0;function frame(ts){const dt=Math.min((ts-last)/1000||0.016,0.05);last=ts;update(dt);
-  if(S.scenKey==="roundabout")drawRoundScene();else drawScene();
-  drawGraphs();drawDOM();
+  drawScene();drawGraphs();drawDOM();
   if(S.specOpen){const w=document.getElementById("specWrap");if(w)w.innerHTML=specSheetInner();else S.specOpen=false;}
   requestAnimationFrame(frame);}
 updateScenBtn();applyScenario();reset();fitScene();fitGraphs();updateLabels();requestAnimationFrame(frame);
