@@ -294,18 +294,24 @@ function update(dt){S.t+=dt;
   const pedlike=(S.target.type==="ped"||S.target.type==="child");
   const aebLatency=T_DSP+T_FILTER+VH.tAct;
   const dSensor=sm;
-  // can this vehicle still physically stop from the current range (a = μ·g)?
+  // can this vehicle still physically STOP from the current range (a = μ·g)?
   const canStop=dSensor!=null&&dSensor>=S.dMinStop+2;
-  // REACT AS SOON AS A HAZARD IS DETECTED IN OUR LANE — decide brake vs. steer immediately.
+  // can it physically COMPLETE an evasive lane change? Needs longitudinal room + time,
+  // and is forbidden once a collision is already deemed inevitable.
+  const dSteerMin=ve*1.0+3;
+  const canSteer=dSensor!=null&&dSensor>dSteerMin&&S.ttc>0.8&&!S.inevitable&&!v.avoided;
   const threat=det.detected&&inLane&&dSensor!=null&&!v.avoided;
+  const doAEB=(tgt)=>{S.decision="AEB";v.braking=true;v.brakeTarget=tgt;v.coast=aebLatency;};
+  const doMerge=()=>{S.decision="LANE MERGE";if(!v.merging){v.merging=true;v.tx=1;}};
   if(threat&&!S.committed){
     if(pedlike){
-      if(S.ttc<=1.2||v.speed>55||!canStop){S.decision="AEB";v.braking=true;v.brakeTarget=0;v.coast=aebLatency;}
-      else{S.decision="LANE MERGE";if(!v.merging){v.merging=true;v.tx=1;}}
+      if(canSteer&&canStop&&S.ttc>1.2&&v.speed<=55)doMerge();   // slow + room → steer around
+      else doAEB(0);                                            // otherwise brake to a full stop
       S.committed=true;
     }else if(S.speedDiff>DV_THR){
-      if(canStop){S.decision="AEB";v.braking=true;v.brakeTarget=Math.max(0,S.target.speed);v.coast=aebLatency;} // can stop → brake now
-      else{S.decision="LANE MERGE";if(!v.merging){v.merging=true;v.tx=1;}}                                       // can't stop → steer around
+      if(canStop)doAEB(Math.max(0,S.target.speed));             // can stop → brake now
+      else if(canSteer)doMerge();                               // can't stop but room to swerve → steer
+      else doAEB(Math.max(0,S.target.speed));                   // can neither stop nor steer → max braking, impact
       S.committed=true;
     }
     // closing slowly (Δv ≤ 15): leave it to adaptive-cruise / follow, no hard commit
