@@ -98,7 +98,8 @@
   .modal .termrow .exp{color:var(--ink);font-size:.88rem;line-height:1.65;direction:rtl;text-align:right}
   .modal .termrow .exp bdi{color:var(--cyan);margin:0 .12em}
   .modal .derivbox{margin-top:16px;background:#0a1119;border:1px solid var(--edge);border-radius:10px;padding:12px 14px}
-  .modal .derivbox .dt{font-family:var(--mono);font-size:.7rem;color:var(--cyan);letter-spacing:.14em;text-transform:uppercase;margin-bottom:10px}
+  .modal .derivbox .dt{font-family:var(--mono);font-size:.7rem;color:var(--cyan);letter-spacing:.14em;text-transform:uppercase;margin-bottom:6px}
+  .modal .derivbox .dof{font-size:.82rem;color:var(--amber);line-height:1.5;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--edge)}
   .modal .dstep{display:flex;gap:12px;align-items:baseline;padding:7px 0;border-bottom:1px solid var(--edge-soft,#1a2231);counter-increment:dstep}
   .modal .dstep:last-child{border-bottom:none}
   .modal .dstep::before{content:counter(dstep);font-family:var(--mono);color:var(--faint);font-size:.72rem;min-width:14px}
@@ -687,7 +688,7 @@ function drawDOM(){$("m-true").textContent=S.range.toFixed(1)+" m";$("m-sm").tex
   const wb=$("warnbox");
   if(S.inevitable){wb.style.display="flex";
     wb.innerHTML=`<div class="t">⛔ UNAVOIDABLE COLLISION</div><div class="d rtl">${bidi(
-      `מרחק הבלימה הפיזיקלי הנדרש (${S.dMinStop.toFixed(0)} מטרים) גדול מהמרחק הקיים (${(S.sm||S.range).toFixed(0)} מטרים). במידה וההגה אינו מסיט את הרכב, התנגשות היא בלתי נמנעת גם תחת בלימת חירום מרבית.`)}</div>`;}
+      `מרחק העצירה הנדרש (${S.dReq.toFixed(0)} מטרים, כמו ב-STOP REQ) גדול מהמרחק הקיים (${(S.sm||S.range).toFixed(0)} מטרים). במידה וההגה אינו מסיט את הרכב, התנגשות היא בלתי נמנעת גם תחת בלימת חירום מרבית.`)}</div>`;}
   else wb.style.display="none";
   // sensor-limitation note: in fog the LiDAR range collapses (Beer-Lambert)
   const fn=$("fognote");
@@ -707,11 +708,14 @@ const EQ={
       ["V²/(2μg) — Mechanical","מרחק הבלימה המכני מרגע נעילת הבלמים, לפי אחיזת הצמיג והכובד."],
       ["D_buffer = 5m","מרווח ביטחון קבוע נגד עצירה פגוש מול פגוש."]];},
     note:"מרחק הבלימה גדל בריבוע המהירות — ולכן המהירות היא הגורם המסוכן ביותר.",
-    deriv:[["F_friction = μ·N = μ·m·g","כוח החיכוך המרבי של הצמיגים."],
-      ["F = m·a  ⟹  a = F/m","החוק השני של ניוטון."],
-      ["a_max = (μ·m·g) / m","הצבת כוח החיכוך במקום F."],
-      ["a_max = μ·g","המסה m מצטמצמת."]],
-    derivNote:"מסקנה: תאוצת הבלימה המרבית תלויה אך ורק במקדם האחיזה μ ובכובד g — ואינה תלויה במסת הרכב!"},
+    derivOf:"מוצאים את מרחק הבלימה המכני V²/(2μg) — כמה מטרים הרכב עובר מרגע נעילת הבלמים ועד עצירה מלאה.",
+    deriv:[["F_friction = μ·m·g","כוח החיכוך המרבי של הצמיגים."],
+      ["a = F/m = μ·g","החוק השני של ניוטון — המסה מצטמצמת, נשארת תאוצת הבלימה."],
+      ["v² = V² − 2·a·s","משוואת התנועה הקינמטית (מהירות מול מרחק)."],
+      ["0 = V² − 2·a·s","בעצירה מלאה המהירות הסופית v = 0."],
+      ["s = V² / (2·a)","בידוד מרחק הבלימה s."],
+      ["s = V² / (2·μ·g)","הצבת a = μ·g."]],
+    derivNote:"מסקנה: מרחק הבלימה תלוי בריבוע המהירות ובאחיזה (μ) — ולא במסת הרכב!"},
   lidar:{short:"P_rec = P_tx·ρ·(D²/4R²)·e^(−2αR)",title:"LiDAR Power & RCS",
     sub:"כמה אור חוזר מהמטרה — קריטי במיוחד להולך רגל.",full:"P_rec = P_tx · ρ · (D² / (4·R²)) · e^(−2αR)",
     terms:()=>[["P_rec — Received Power","הספק האור החוזר הנקלט במערכת."],
@@ -721,6 +725,7 @@ const EQ={
       ["R — Range","המרחק הפיזיקלי למטרה, במטרים."],
       ["α — Attenuation","מקדם הניחות של האוויר — רמת הערפל והאבק."]],
     note:"לדוגמה, הולך רגל טיפוסי עם ρ בערך 0.1 מחזיר פי 5 פחות אנרגיה מרכב — מה שמפיל את יחס האות-לרעש ומאלץ את המסנן המתואם לחלץ את הפיק מהרעש.",
+    derivOf:"מראים כיצד מתקבל ההספק החוזר P_rec ממכפלת ארבעה גורמים פיזיקליים.",
     deriv:[["P_tx","הספק הלייזר המשודר."],
       ["× ρ","הכפלה במקדם ההחזרה של המטרה."],
       ["× D² / 4R²","היחס הגיאומטרי: שטח עדשת המקלט (קוטר D) מול אלומת האור המתפשטת במרחק R."],
@@ -730,6 +735,7 @@ const EQ={
     full:"I = I₀ · e^(−2αR)",terms:()=>[["α — Alpha","מקדם פיזור ובליעה של חלקיקי מים באוויר, כלומר ערפל."],
       ["R — Range","המרחק למטרה. האור עובר הלוך ושוב, ולכן כפול 2."],["I₀ → I","עוצמת האות ההתחלתית מול הנקלטת."]],
     note:"האות דועך אקספוננציאלית עם צפיפות הערפל והמרחק — ולכן בערפל כבד הלידאר מזהה רק מטרות קרובות.",
+    derivOf:"מפתחים את חוק ההנחתה I = I₀·e^(−2αR) מתוך משוואה דיפרנציאלית של איבוד אור.",
     deriv:[["dI = −α·I·dx","איבוד האור פרופורציוני לעוצמה ולמרחק (חוק ביר-למברט)."],
       ["dI/I = −α·dx","הפרדת משתנים."],
       ["ln(I / I₀) = −α·x","אינטגרציה משני האגפים."],
@@ -740,6 +746,7 @@ const EQ={
     full:"TTC = R / (V_ego − V_target)",terms:()=>[["R — Range","המרחק הנוכחי למטרה, במטרים."],
       ["V_ego − V_target","קצב ההתקרבות. ערך שלילי אומר שאנחנו מתרחקים."],["TTC","הזמן עד פגיעה אם שום דבר לא ישתנה."]],
     note:"ערך TTC נמוך פירושו דחיפות גבוהה. מערכות בטיחות מפעילות התראה ואז בלימה כשהערך יורד מתחת לסף.",
+    derivOf:"מוצאים את הזמן עד ההתנגשות TTC מתוך המרחק והמהירות היחסית.",
     deriv:[["מרחק הפער = R","הפער הנוכחי בין הרכב למטרה."],
       ["מהירות סגירה = V_ego − V_target","הקצב שבו הפער נסגר."],
       ["t = distance / speed","הגדרת מהירות: v = d/t ⟹ t = d/v."],
@@ -750,6 +757,7 @@ const EQ={
       ["g — Gravity","תאוצת הכובד, 9.81 מטר לשנייה בריבוע."],["r — Radius","רדיוס הכיכר, כאן 25 מטר."],
       ["V_max",`המהירות שבה כוח הצנטריפטה שווה לחיכוך המרבי, כאן ${(curveVsafe()).toFixed(0)} קמ״ש.`]];},
     note:"רכב עם אחיזה גבוהה יכול להיכנס מהר יותר, ומשאית עם אחיזה נמוכה חייבת להאט הרבה יותר.",
+    derivOf:"מוצאים את המהירות המרבית V_max שבה אפשר לעבור פנייה ברדיוס r מבלי להחליק.",
     deriv:[["F_c = m·v² / r","הכוח הצנטריפטלי הנדרש לפנייה."],
       ["F_friction = μ·m·g","כוח החיכוך המרבי המונע החלקה."],
       ["m·v²/r = μ·m·g","השוואת הכוחות ברגע סף ההחלקה."],
@@ -761,6 +769,7 @@ const EQ={
       ["s(t) — Reference","הפולס הידוע ששודר, המשמש כתבנית ייחוס."],["⋆ — Correlation","קורלציה שממקסמת את יחס האות-לרעש ויוצרת פיק חד."],
       ["R̂ = c·τ̂/2","המרחק מחושב מזמן הפיק שנמצא."]],
     note:"סף הזיהוי נקבע לפי רצפת הרעש כפול 6 — וכך נמנעות אזעקות שווא.",
+    derivOf:"מראים כיצד המסנן המתואם מחלץ את זמן ההגעה τ̂ וממנו את המרחק R̂.",
     deriv:[["r(t) = s(t−τ) + n(t)","האות הנקלט: הד מושהה ב-τ ועוד רעש."],
       ["y(t) = r(t) ⋆ s(t)","קורלציה של האות עם הפולס הידוע."],
       ["peak at t = τ̂","הקורלציה מקסימלית כשהתבנית מיושרת מדויק להד."],
@@ -784,7 +793,7 @@ function openEq(key){S.specOpen=false;const e=EQ[key];let dl="";
   for(const [t,d] of e.terms())dl+=`<div class="termrow"><div class="sym">${t}</div><div class="exp">${bidi(d)}</div></div>`;
   let deriv="";
   if(e.deriv){const steps=e.deriv.map(([f,n])=>`<div class="dstep"><span class="f">${f}</span><span class="n">${bidi(n)}</span></div>`).join("");
-    deriv=`<div class="derivbox"><div class="dt">Mathematical Derivation · פיתוח מתמטי</div>${steps}</div>`
+    deriv=`<div class="derivbox"><div class="dt">פיתוח מתמטי · Derivation</div>${e.derivOf?`<div class="dof rtl">${bidi(e.derivOf)}</div>`:""}${steps}</div>`
       +(e.derivNote?`<div class="note rtl">${bidi(e.derivNote)}</div>`:"");}
   openModal(`<h3>${e.title}</h3><div class="sub rtl">${bidi(e.sub)}</div><div class="eq">${e.full}</div>${deriv}<dl>${dl}</dl><div class="note rtl">${bidi(e.note)}</div>`);}
 function specRow(label,value,explain){return `<tr><td>${label}<div class="ex rtl">${bidi(explain)}</div></td><td>${value}</td></tr>`;}
