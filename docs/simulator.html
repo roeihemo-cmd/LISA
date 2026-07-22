@@ -301,11 +301,11 @@ function update(dt){S.t+=dt;
   if(S.decision==="AEB"&&v.braking&&S.target.speed>1&&!S.target.braking&&v.speed<=S.target.speed+0.5){v.braking=false;S.following=true;S.decision="FOLLOW";}
   v.update(dt,VH);S.target.update(dt);
   const vt=S.target.speed/3.6,rel=v.avoided?-(Math.abs(ve)+4):(vt-ve);
-  S.range=Math.max(5,Math.min(MAXV,S.range+rel*dt));S.scroll=(S.scroll+ve*dt*9)%2000;
+  S.range=Math.max(1.5,Math.min(MAXV,S.range+rel*dt));S.scroll=(S.scroll+ve*dt*9)%2000;
   // --- outcome detection -> freeze the screen for 3 s, then reset ---
-  if(v.braking&&v.speed<0.5&&S.range>5.6)freeze("VEHICLE SAFELY STOPPED","#39d98a");     // braked to a full stop
-  else if(S.range<=5.6&&v.speed>2&&!v.avoided&&!v.merging)freeze("COLLISION OCCURRED","#ff2532"); // couldn't stop
-  else if(v.avoided&&S.range>=MAXV-2)freeze("COLLISION AVOIDED — LANE CHANGE","#39d98a");}    // steered clear
+  if(v.speed<0.5&&(v.braking||S.committed)&&S.range>2.2)freeze("VEHICLE SAFELY STOPPED","#39d98a"); // braked to a full stop (any distance ahead of the target)
+  else if(S.range<=2.2&&v.speed>2&&!v.avoided&&!v.merging)freeze("COLLISION OCCURRED","#ff2532");   // actually reached the target while moving
+  else if(v.avoided&&S.range>=MAXV-2)freeze("COLLISION AVOIDED — LANE CHANGE","#39d98a");}          // steered clear
 function runScan(){const pts=[],R=S.range,egoLat=S.ego.x*LANE_W,tLat=S.target.lat*LANE_W;
   for(let i=0;i<LINES;i++){const ang=-FOV+(2*FOV)*i/(LINES-1),lat=egoLat+R*Math.tan(ang);
     if(Math.abs(lat-tLat)>TARGET_HALF)continue;const p=LiDAR.detect(R/Math.cos(ang),1,S.rho,S.fog,S.noise);pts.push({lat,det:p.detected});}S.scan=pts;}
