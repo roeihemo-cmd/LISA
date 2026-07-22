@@ -437,7 +437,7 @@ function drawScene(){sctx.clearRect(0,0,SW,SH);sctx.fillStyle="#070a10";sctx.fil
   const cx=SW/2,hy=HZ(),ey=EY(),th=rHalf(hy),bh=rHalf(ey+40),ct=curveOff(hy),cb=curveOff(ey+40);
   sctx.fillStyle="#141a24";sctx.beginPath();sctx.moveTo(cx-th+ct,hy);sctx.lineTo(cx+th+ct,hy);sctx.lineTo(cx+bh+cb,ey+40);sctx.lineTo(cx-bh+cb,ey+40);sctx.closePath();sctx.fill();
   sctx.strokeStyle="rgba(0,224,255,.5)";sctx.lineWidth=3;for(const sd of[-1,1]){sctx.beginPath();sctx.moveTo(cx+sd*th+ct,hy);sctx.lineTo(cx+sd*bh+cb,ey+40);sctx.stroke();}
-  for(const ln of[-0.5,0.5]){for(let k=-1;k<40;k++){const yy=hy+((k*36+S.scroll)%(ey-hy+60));if(yy<hy||yy>ey+40)continue;const y2=Math.min(yy+16,ey+40);
+  if(S.scenKey!=="roundabout")for(const ln of[-0.5,0.5]){for(let k=-1;k<40;k++){const yy=hy+((k*36+S.scroll)%(ey-hy+60));if(yy<hy||yy>ey+40)continue;const y2=Math.min(yy+16,ey+40);
     sctx.strokeStyle="rgba(220,224,230,.65)";sctx.lineWidth=1+3*(yy-hy)/(ey-hy);sctx.beginPath();sctx.moveTo(wX(ln,yy),yy);sctx.lineTo(wX(ln,y2),y2);sctx.stroke();}}
   drawTarget();drawBeam();drawHost();drawFog();drawHUD();}
 
@@ -564,7 +564,9 @@ function drawBeam(){if(S.blinded)return;const yF=r2y(S.range),fx=wX(S.ego.x,EY()
 
 function hostShape(){return veh().shape;}
 function egoBox(){const sp=hostShape(),y=EY(),x=wX(S.ego.x,y);return{x:x-sp.w/2,y:y-sp.h/2,w:sp.w,h:sp.h};}
-function drawHost(){drawVehicle(wX(S.ego.x,EY()),EY(),1.0,hostShape(),S.ego.braking&&S.ego.speed>0.1,true);}
+function drawHost(){const y=EY(),x=wX(S.ego.x,y),steer=Math.max(-0.45,Math.min(0.45,(S.ego.tx-S.ego.x)*0.8));
+  sctx.save();sctx.translate(x,y);sctx.rotate(steer);          // tilt into the turn (visible steering)
+  drawVehicle(0,0,1.0,hostShape(),S.ego.braking&&S.ego.speed>0.1,true);sctx.restore();}
 
 let fogP=null;function drawFog(){const f=Math.max(0,Math.min(1,S.fog/0.3));if(f<=0.01)return;
   sctx.fillStyle=`rgba(200,206,214,${0.05+0.4*f})`;sctx.fillRect(0,0,SW,SH);
@@ -660,41 +662,41 @@ function drawDOM(){$("m-true").textContent=S.range.toFixed(1)+" m";$("m-sm").tex
 const EQ={
   braking:{short:"D_req = V·T_lat + V²/(2μg) + D_buf",title:"Total Braking Distance",
     sub:"מרחק העצירה שהמערכת זקוקה לו כדי לעצור בבטחה.",full:"D_required = V·(T_DSP + T_filter + T_actuator) + V²/(2·μ·g) + D_buffer",
-    terms:()=>{const VH=veh();return[["V","מהירות הרכב הנוכחית ב-m/s."],
-      ["T_DSP ≈ 0.03 s","השהיית עיבוד החיישן וה-Matched Filter — מרגע חזרת הפולס ועד זיהוי המטרה."],
-      ["T_filter ≈ 0.13 s","השהיית המסנן הדינמי, ממוצע נע על 8 frames, לייצוב המדידה מהרעש."],
-      [`T_actuator = ${VH.tAct}s`,`זמן תגובת הבלמים מסוג ${VH.act} ברכב ${VH.name}.`],
-      ["V·ΣT","מרחק העיוורון — המרחק שהרכב עובר במהירות מלאה עוד לפני שהבלמים נגעו בגלגל."],
-      ["V²/(2·μ·g)",`מרחק הבלימה המכני מרגע נעילת הבלמים, לפי אחיזה μ=${VH.mu} וכובד g=9.81.`],
-      ["D_buffer = 5 m","מרווח ביטחון קבוע נגד עצירה פגוש מול פגוש."]];},
-    note:"מרחק הבלימה גדל בריבוע המהירות V² — ולכן המהירות היא הגורם המסוכן ביותר."},
+    terms:()=>{const VH=veh();return[["V — Speed","מהירות הרכב הנוכחית, במטר לשנייה."],
+      ["T_DSP ≈ 0.03s","השהיית עיבוד החיישן והמסנן המתואם — מרגע חזרת הפולס ועד זיהוי המטרה."],
+      ["T_filter ≈ 0.13s","השהיית המסנן הדינמי (ממוצע נע על 8 פריימים) לייצוב המדידה מהרעש."],
+      [`T_actuator = ${VH.tAct}s`,`זמן תגובת הבלמים ברכב הנבחר, ${VH.name}.`],
+      ["V·ΣT — Blind Distance","המרחק שהרכב עובר במהירות מלאה לפני שהבלמים נגעו בגלגל."],
+      ["V²/(2μg) — Mechanical","מרחק הבלימה המכני מרגע נעילת הבלמים, לפי אחיזת הצמיג והכובד."],
+      ["D_buffer = 5m","מרווח ביטחון קבוע נגד עצירה פגוש מול פגוש."]];},
+    note:"מרחק הבלימה גדל בריבוע המהירות — ולכן המהירות היא הגורם המסוכן ביותר."},
   lidar:{short:"P_rec = P_tx·ρ·(D²/4R²)·e^(−2αR)",title:"LiDAR Power & RCS",
     sub:"כמה אור חוזר מהמטרה — קריטי במיוחד להולך רגל.",full:"P_rec = P_tx · ρ · (D² / (4·R²)) · e^(−2αR)",
-    terms:()=>[["P_rec","הספק האור החוזר הנקלט במערכת (Received Power)."],
-      ["P_tx","הספק הלייזר המשודר מתוך המכשיר (Transmitted Power)."],
-      ["ρ (רו)",`מקדם ההחזרה / רפלקטיביות של המטרה. הערך הנוכחי ρ=${S.rho.toFixed(2)} (רכב 0.5–0.8, הולך רגל ≈0.1).`],
-      ["D","קוטר עדשת המקלט (Receiver Lens Diameter). במערכות LiDAR לרכב (Velodyne / Luminar) נע בין 20mm ל-50mm, כלומר 0.02–0.05 m."],
-      ["R","המרחק הפיזיקלי למטרה במטרים (Range)."],
-      ["α (אלפא)","מקדם הניחות של האוויר — רמת הערפל והאבק (Attenuation Coefficient)."]],
-    note:"הולך רגל עם ρ=0.1 מחזיר פי 5 פחות אנרגיה מרכב — מה שמפיל את ה-SNR ומאלץ את ה-Matched Filter לחלץ את הפיק מהרעש."},
+    terms:()=>[["P_rec — Received Power","הספק האור החוזר הנקלט במערכת."],
+      ["P_tx — Transmitted Power","הספק הלייזר המשודר מתוך המכשיר."],
+      ["ρ — Reflectivity",`מקדם ההחזרה של המטרה. הערך הנוכחי הוא ${S.rho.toFixed(2)} — רכב 0.5 עד 0.8, הולך רגל בערך 0.1.`],
+      ["D — Lens Diameter","קוטר עדשת המקלט. במערכות לרכב טיפוסי בין 20 ל-50 מילימטר, כלומר 0.02 עד 0.05 מטר."],
+      ["R — Range","המרחק הפיזיקלי למטרה, במטרים."],
+      ["α — Attenuation","מקדם הניחות של האוויר — רמת הערפל והאבק."]],
+    note:"לדוגמה, הולך רגל טיפוסי עם ρ בערך 0.1 מחזיר פי 5 פחות אנרגיה מרכב — מה שמפיל את יחס האות-לרעש ומאלץ את המסנן המתואם לחלץ את הפיק מהרעש."},
   beer:{short:"I = I₀·e^(−2αR)",title:"Beer–Lambert Attenuation",sub:"כיצד ערפל בולע את אלומת הלייזר.",
-    full:"I = I₀ · e^(−2αR)",terms:()=>[["α (alpha)","מקדם פיזור ובליעה של חלקיקי מים באוויר, כלומר ערפל."],
-      ["R","המרחק למטרה. האור עובר הלוך ושוב, ולכן כפול 2."],["I₀ → I","עוצמת האות ההתחלתית מול הנקלטת."]],
+    full:"I = I₀ · e^(−2αR)",terms:()=>[["α — Alpha","מקדם פיזור ובליעה של חלקיקי מים באוויר, כלומר ערפל."],
+      ["R — Range","המרחק למטרה. האור עובר הלוך ושוב, ולכן כפול 2."],["I₀ → I","עוצמת האות ההתחלתית מול הנקלטת."]],
     note:"האות דועך אקספוננציאלית עם צפיפות הערפל והמרחק — ולכן בערפל כבד הלידאר מזהה רק מטרות קרובות."},
   ttc:{short:"TTC = R / (V − V_target)",title:"Time To Collision",sub:"תוך כמה שניות נגיע למטרה בקצב הנוכחי.",
-    full:"TTC = R / (V_ego − V_target)",terms:()=>[["R","המרחק הנוכחי למטרה ב-m."],
-      ["V_ego − V_target","קצב ההתקרבות ב-m/s. ערך שלילי אומר שאנחנו מתרחקים."],["TTC","הזמן עד פגיעה אם שום דבר לא ישתנה."]],
-    note:"TTC נמוך פירושו דחיפות גבוהה. מערכות ADAS מפעילות התראה ואז בלימה כשה-TTC יורד מתחת לסף."},
+    full:"TTC = R / (V_ego − V_target)",terms:()=>[["R — Range","המרחק הנוכחי למטרה, במטרים."],
+      ["V_ego − V_target","קצב ההתקרבות. ערך שלילי אומר שאנחנו מתרחקים."],["TTC","הזמן עד פגיעה אם שום דבר לא ישתנה."]],
+    note:"ערך TTC נמוך פירושו דחיפות גבוהה. מערכות בטיחות מפעילות התראה ואז בלימה כשהערך יורד מתחת לסף."},
   curve:{short:"V_max = √(μ·g·r)",title:"Safe Cornering Speed",sub:"המהירות המרבית להיכנס לכיכר בלי להחליק.",
-    full:"V_max = √(μ · g · r)",terms:()=>{const VH=veh();return[["μ",`אחיזת הצמיג ברכב ${VH.name}, כאן μ=${VH.mu}.`],
-      ["g","תאוצת הכובד, 9.81 m/s²."],["r","רדיוס הכיכר, כאן 25 m."],
-      ["V_max",`המהירות שבה כוח הצנטריפטה שווה לחיכוך המרבי, כאן ${(curveVsafe()).toFixed(0)} km/h.`]];},
-    note:"רכב עם אחיזה גבוהה כמו Tesla ב-μ=0.9 יכול להיכנס מהר יותר, ומשאית ב-μ=0.6 חייבת להאט הרבה יותר."},
+    full:"V_max = √(μ · g · r)",terms:()=>{const VH=veh();return[["μ — Friction",`אחיזת הצמיג בכביש ברכב הנבחר, כאן ${VH.mu}.`],
+      ["g — Gravity","תאוצת הכובד, 9.81 מטר לשנייה בריבוע."],["r — Radius","רדיוס הכיכר, כאן 25 מטר."],
+      ["V_max",`המהירות שבה כוח הצנטריפטה שווה לחיכוך המרבי, כאן ${(curveVsafe()).toFixed(0)} קמ״ש.`]];},
+    note:"רכב עם אחיזה גבוהה יכול להיכנס מהר יותר, ומשאית עם אחיזה נמוכה חייבת להאט הרבה יותר."},
   matched:{short:"y(t) = r(t) ⋆ s(t)",title:"Matched Filter Detection",sub:"חילוץ ההד החלש מתוך רעש המקלט.",
-    full:"y(t) = r(t) ⋆ s(t) ,   R̂ = c·τ̂/2",terms:()=>[["r(t)","האות הנקלט: הד ועוד רעש גאוסי לבן, כלומר AWGN."],
-      ["s(t)","הפולס הידוע ששודר, שמשמש כתבנית ייחוס."],["⋆","קורלציה שממקסמת את ה-SNR ויוצרת פיק חד, כלומר pulse compression."],
+    full:"y(t) = r(t) ⋆ s(t) ,   R̂ = c·τ̂/2",terms:()=>[["r(t) — Received","האות הנקלט: הד ועוד רעש גאוסי לבן."],
+      ["s(t) — Reference","הפולס הידוע ששודר, המשמש כתבנית ייחוס."],["⋆ — Correlation","קורלציה שממקסמת את יחס האות-לרעש ויוצרת פיק חד."],
       ["R̂ = c·τ̂/2","המרחק מחושב מזמן הפיק שנמצא."]],
-    note:"סף הזיהוי נקבע לפי רצפת הרעש MAD כפול 6 — וכך נמנעות אזעקות שווא."},
+    note:"סף הזיהוי נקבע לפי רצפת הרעש כפול 6 — וכך נמנעות אזעקות שווא."},
 };
 function bidi(s){return String(s).replace(/([^֐-׿\s]+)/g,"<bdi>$1</bdi>");}
 function renderScenMath(){const sc=SCEN[S.scenKey];$("scenmath-title").textContent="Scenario Math · "+sc.name;
