@@ -681,7 +681,7 @@ function drawDOM(){$("m-true").textContent=S.range.toFixed(1)+" m";$("m-sm").tex
   const wb=$("warnbox");
   if(S.inevitable){wb.style.display="flex";
     wb.innerHTML=`<div class="t">⛔ UNAVOIDABLE COLLISION</div><div class="d rtl">${bidi(
-      `מרחק העצירה הנדרש (${S.dReq.toFixed(0)} מטרים, כמו ב-STOP REQ) גדול מהמרחק הקיים (${(S.sm||S.range).toFixed(0)} מטרים). במידה וההגה אינו מסיט את הרכב, התנגשות היא בלתי נמנעת גם תחת בלימת חירום מרבית.`)}</div>`;}
+      `מרחק העצירה הנדרש (${S.dReq.toFixed(1)} מ', כמו ב-STOP REQ) גדול מהמרחק הקיים (${(S.sm||S.range).toFixed(1)} מ', כמו ב-EST) — במידה וההגה אינו מסיט את הרכב, התנגשות היא בלתי נמנעת גם תחת בלימת חירום מרבית.`)}</div>`;}
   else wb.style.display="none";
   // sensor-limitation note: in fog the LiDAR range collapses (Beer-Lambert)
   const fn=$("fognote");
