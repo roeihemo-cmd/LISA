@@ -50,7 +50,7 @@ It is both an **engineering sandbox** (every DSP and physics parameter is live-a
 | Transmitted pulse | `s(t) = exp(−(t−t₀)² / 2σ²)` |
 | Time of flight | `τ = 2R / c` |
 | Atmospheric loss (Beer–Lambert) | `η(R) = e^(−2αR)` |
-| Optical radar equation | `P_rec = P_tx · ρ · (A_rx / πR²) · e^(−2αR)` |
+| Optical radar equation | `P_rec = P_tx · ρ · (D² / 4R²) · e^(−2αR)`  (D = receiver lens diameter) |
 | Noisy receiver | `r(t) = A·s(t−τ) + n(t),  n ~ 𝒩(0, σ²)` |
 | Matched filter | `y(t) = r(t) ⋆ s(t)` (maximizes SNR → pulse compression) |
 | Detection | peak `≥ 6 × MAD` noise floor |

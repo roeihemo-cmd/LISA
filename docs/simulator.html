@@ -83,9 +83,13 @@
   .modal .sub{color:var(--dim);font-size:.82rem;margin-bottom:16px}
   .modal .eq{font-family:var(--mono);background:#0a1119;border:1px solid var(--edge);border-left:3px solid var(--cyan);
     border-radius:8px;padding:12px 14px;margin:12px 0;font-size:1rem;overflow-x:auto}
-  .modal dl{margin:0;display:flex;flex-direction:column;gap:9px}
-  .modal dt{font-family:var(--mono);color:var(--amber);font-size:.85rem;font-weight:600}
-  .modal dd{margin:2px 0 0;color:var(--ink);font-size:.89rem;line-height:1.55}
+  .modal dl{margin:0;display:flex;flex-direction:column}
+  .modal .termrow{padding:10px 2px;border-bottom:1px solid var(--edge-soft,#1a2231)}
+  .modal .termrow:last-child{border-bottom:none}
+  .modal .termrow .sym{font-family:var(--mono);color:var(--amber);font-size:.9rem;font-weight:700;
+    letter-spacing:.02em;margin-bottom:4px;direction:ltr;unicode-bidi:isolate}
+  .modal .termrow .exp{color:var(--ink);font-size:.88rem;line-height:1.65;direction:rtl;text-align:right}
+  .modal .termrow .exp bdi{color:var(--cyan);margin:0 .12em}
   .modal .note{background:#0a1512;border:1px solid #17352a;border-radius:8px;padding:11px 13px;margin-top:12px;color:var(--green);font-size:.86rem;line-height:1.6}
   .modal .close{float:left;background:none;border:1px solid var(--edge);color:var(--dim);border-radius:8px;padding:5px 12px;cursor:pointer;font-family:var(--mono);font-size:.8rem}
   .spec table{width:100%;border-collapse:collapse;margin-top:6px;font-size:.88rem}
@@ -276,25 +280,26 @@ function update(dt){S.t+=dt;
   if(S.inevitable){v.merging=false;v.tx=v.x;if(!v.braking){v.braking=true;v.coast=T_DSP+T_FILTER+VH.tAct;}v.brakeTarget=0;S.decision="AEB";S.committed=true;}
   runScan();
 
-  // ---- ROUNDABOUT (driver perspective): approach & slow -> curve around the island -> exit ----
+  // ---- ROUNDABOUT: a STATIC roundabout sits ahead on the road; we slow, curve around it, and exit ----
   if(S.target.type==="roundabout"){
-    const vsafe=curveVsafe();S.inevitable=false;v.braking=false;v.merging=false;
-    const smf=t=>t*t*(3-2*t);
+    const vsafe=curveVsafe();S.inevitable=false;v.braking=false;v.merging=false;S.curve=0;S.target.lat=0;
     if(S.rndPhase==="approach"){
-      v.cruise=Math.min(S.speed,vsafe);v.update(dt,VH);   // slow toward safe entry speed (never speed up)
-      S.appDist-=(v.speed/3.6)*dt;S.range=Math.max(6,S.appDist);  // island grows as we near it
-      S.curve+=(0-S.curve)*Math.min(1,4*dt);S.target.lat=0;       // straight, island dead ahead
-      S.decision="SLOWING";
-      if(S.appDist<=0){
+      v.cruise=Math.min(S.speed,vsafe);v.update(dt,VH);          // slow toward safe entry speed
+      S.appDist-=(v.speed/3.6)*dt;S.range=Math.max(15,S.appDist);// the roundabout ahead grows
+      v.tx=0;S.decision="SLOWING";
+      if(S.appDist<=15){
         if(v.speed>vsafe+4){if(!S.frozen)freeze("COLLISION OCCURRED","#ff2532");}  // entered too fast -> skid
-        else{S.rndPhase="turn";S.rndProg=0;}
+        else{S.rndPhase="around";S.rndProg=0;}
       }
+    }else if(S.rndPhase==="around"){
+      v.cruise=vsafe;v.update(dt,VH);S.rndProg+=dt/3.0;S.decision="ROUNDABOUT";
+      v.tx=Math.sin(Math.min(1,S.rndProg)*Math.PI)*1.0;          // veer out and back — drive around the island
+      S.range=Math.max(4,15-S.rndProg*12);                       // the roundabout passes alongside
+      if(S.rndProg>=1){S.rndPhase="exit";S.rndProg=0;}
     }else{
-      v.cruise=vsafe;v.update(dt,VH);S.decision="ROUNDABOUT";
-      S.rndProg+=dt/3.4;const p=Math.min(1,S.rndProg);
-      S.curve=(p<0.3?smf(p/0.3):p<0.7?1:1-smf((p-0.7)/0.3));      // road bends right, holds, then straightens
-      S.range=11;S.target.lat=-1.35;                              // island close on our left (inside of the curve)
-      if(S.rndProg>=1&&!S.frozen)freeze("ROUNDABOUT CLEARED SAFELY","#39d98a");
+      v.cruise=S.speed;v.update(dt,VH);v.tx=0;S.decision="ROUNDABOUT";
+      S.range=Math.min(MAXV,S.range+(v.speed/3.6+3)*dt);         // roundabout falls behind
+      if(S.range>=70&&!S.frozen)freeze("ROUNDABOUT CLEARED SAFELY","#39d98a");
     }
     S.scroll=(S.scroll+(v.speed/3.6)*dt*9)%2000;
     return;
@@ -331,8 +336,9 @@ function update(dt){S.t+=dt;
   const vt=S.target.speed/3.6,rel=v.avoided?-(Math.abs(ve)+4):(vt-ve);
   S.range=Math.max(1.5,Math.min(MAXV,S.range+rel*dt));S.scroll=(S.scroll+ve*dt*9)%2000;
   // --- outcome detection -> freeze the screen for 3 s, then reset ---
-  // pedestrian/child finished crossing without incident -> new crossing (no ping-pong)
-  if((S.target.type==="ped"||S.target.type==="child")&&Math.abs(S.target.lat)>2.3&&!S.frozen&&!S.committed){reset();return;}
+  // pedestrian/child finished crossing without incident -> report success, then reset (one crossing only)
+  if((S.target.type==="ped"||S.target.type==="child")&&Math.abs(S.target.lat)>2.3&&!S.frozen&&!S.committed){
+    freeze(S.target.type==="child"?"CHILD CROSSED SAFELY":"PEDESTRIAN CROSSED SAFELY","#39d98a");return;}
   const inFront=Math.abs(v.x-S.target.lat)<0.5;    // target laterally in front of our bumper
   // Exhaustive & ordered so a stop right at the target still counts as impact (no gap -> no FOLLOW flip):
   if(S.range<=2.5&&inFront&&!v.avoided&&!v.merging)freeze("COLLISION OCCURRED","#ff2532");           // reached the target
@@ -519,27 +525,29 @@ function drawObstacle(x,y,sc){const s=sc; // traffic cone + barrier
   sctx.fillStyle="#fff";rr(x-6*s,y-6*s,12*s,4*s,1);sctx.fill();
   sctx.strokeStyle=S.detected?"#39d98a":"#ff4d6d";sctx.lineWidth=2.5;sctx.strokeRect(x-24*s,y-24*s,48*s,40*s);}
 
-function drawRound(x,y,sc){const cx=SW/2,r=Math.max(24,46*sc),ry=r*0.5,s=sc; // central island of the roundabout
-  // painted circular lane line around the island (white)
-  sctx.strokeStyle="rgba(235,238,242,.55)";sctx.lineWidth=Math.max(2,3*s);sctx.setLineDash([10*s,8*s]);
-  sctx.beginPath();sctx.ellipse(cx,y,r*1.12,ry*1.12,0,0,7);sctx.stroke();sctx.setLineDash([]);
-  // raised curb (concrete ring)
-  sctx.fillStyle="#4a515e";sctx.beginPath();sctx.ellipse(cx,y,r,ry,0,0,7);sctx.fill();
-  sctx.fillStyle="#2f3542";sctx.beginPath();sctx.ellipse(cx,y-ry*0.08,r*0.9,ry*0.9,0,0,7);sctx.fill();
-  // grass mound
-  sctx.fillStyle="#1e6437";sctx.beginPath();sctx.ellipse(cx,y-ry*0.12,r*0.8,ry*0.8,0,0,7);sctx.fill();
-  sctx.fillStyle="#268047";sctx.beginPath();sctx.ellipse(cx,y-ry*0.28,r*0.62,ry*0.55,0,0,7);sctx.fill();
-  // little bushes on the island
-  for(let i=0;i<3;i++){const bx=cx+(i-1)*r*0.34,by=y-ry*0.3;
-    sctx.fillStyle="#164a2a";sctx.beginPath();sctx.arc(bx,by,r*0.15,0,7);sctx.fill();
-    sctx.fillStyle="#2e7d49";sctx.beginPath();sctx.arc(bx-2*s,by-2*s,r*0.1,0,7);sctx.fill();}
-  // detection outline
-  if(S.detected){sctx.strokeStyle="rgba(57,217,138,.85)";sctx.lineWidth=2.5*s;
-    sctx.beginPath();sctx.ellipse(cx,y,r,ry,0,0,7);sctx.stroke();}
-  // curved YIELD arrow hinting the way around (right side)
-  sctx.strokeStyle="#ffb020";sctx.lineWidth=2.4*s;sctx.beginPath();sctx.ellipse(cx,y,r*1.12,ry*1.12,0,-0.6,0.5);sctx.stroke();
-  const A=0.5,ex=cx+Math.cos(A)*r*1.12,ey=y+Math.sin(A)*ry*1.12;
-  sctx.beginPath();sctx.moveTo(ex,ey);sctx.lineTo(ex-6*s,ey-2*s);sctx.moveTo(ex,ey);sctx.lineTo(ex-2*s,ey-6*s);sctx.stroke();}
+function drawRound(x,y,sc){const g=sctx,s=sc; // a full roundabout lying on the road (flattened ellipse for perspective)
+  const rw=Math.max(70,150*s),rh=rw*0.42;      // outer ring radii
+  const ringW=rw*0.34;                          // asphalt lane band width
+  // outer asphalt ring (fill) then punch the grass island
+  g.fillStyle="#20262f";g.beginPath();g.ellipse(x,y,rw,rh,0,0,7);g.fill();
+  // outer & inner painted edge lines
+  g.strokeStyle="rgba(235,238,242,.5)";g.lineWidth=2.2;
+  g.beginPath();g.ellipse(x,y,rw,rh,0,0,7);g.stroke();
+  g.beginPath();g.ellipse(x,y,rw-ringW,rh-ringW*0.42,0,0,7);g.stroke();
+  // dashed circulating lane line
+  g.setLineDash([10,12]);g.strokeStyle="rgba(235,238,242,.3)";g.lineWidth=1.6;
+  g.beginPath();g.ellipse(x,y,rw-ringW*0.5,rh-ringW*0.21,0,0,7);g.stroke();g.setLineDash([]);
+  // raised curb + grass central island
+  const ir=rw-ringW,irh=rh-ringW*0.42;
+  g.fillStyle="#525a68";g.beginPath();g.ellipse(x,y,ir,irh,0,0,7);g.fill();
+  g.fillStyle="#1e6437";g.beginPath();g.ellipse(x,y,ir-4,irh-4,0,0,7);g.fill();
+  g.fillStyle="#268047";g.beginPath();g.ellipse(x,y-irh*0.2,ir*0.7,irh*0.6,0,0,7);g.fill();
+  // trees on the island
+  for(let i=0;i<5;i++){const a=i/5*7,bx=x+Math.cos(a)*ir*0.5,by=y+Math.sin(a)*irh*0.5;
+    g.fillStyle="rgba(0,0,0,.3)";g.beginPath();g.arc(bx+2,by+2,ir*0.12,0,7);g.fill();
+    g.fillStyle="#164a2a";g.beginPath();g.arc(bx,by,ir*0.12,0,7);g.fill();
+    g.fillStyle="#2e8b4c";g.beginPath();g.arc(bx-2,by-2,ir*0.08,0,7);g.fill();}
+  if(S.detected){g.strokeStyle="rgba(57,217,138,.7)";g.lineWidth=2.5;g.beginPath();g.ellipse(x,y,rw,rh,0,0,7);g.stroke();}}
 
 function drawBeam(){if(S.blinded)return;const yF=r2y(S.range),fx=wX(S.ego.x,EY()),fy=EY()-40,egoLat=S.ego.x*LANE_W,col=S.detected?"57,217,138":"255,77,109";
   const pL=wX((egoLat+S.range*Math.tan(-FOV))/LANE_W,yF),pR=wX((egoLat+S.range*Math.tan(FOV))/LANE_W,yF);
@@ -694,7 +702,8 @@ const overlay=$("overlay"),modal=$("modal");
 function openModal(html){modal.innerHTML='<button class="close" onclick="closeModal()">✕ close</button>'+html;overlay.classList.add("show");}
 window.closeModal=()=>{S.specOpen=false;overlay.classList.remove("show");};
 overlay.addEventListener("click",e=>{if(e.target===overlay)closeModal();});
-function openEq(key){S.specOpen=false;const e=EQ[key];let dl="";for(const [t,d] of e.terms())dl+=`<div><dt>${t}</dt><dd class="rtl">${bidi(d)}</dd></div>`;
+function openEq(key){S.specOpen=false;const e=EQ[key];let dl="";
+  for(const [t,d] of e.terms())dl+=`<div class="termrow"><div class="sym">${t}</div><div class="exp">${bidi(d)}</div></div>`;
   openModal(`<h3>${e.title}</h3><div class="sub rtl">${bidi(e.sub)}</div><div class="eq">${e.full}</div><dl>${dl}</dl><div class="note rtl">${bidi(e.note)}</div>`);}
 function specRow(label,value,explain){return `<tr><td>${label}<div class="ex rtl">${bidi(explain)}</div></td><td>${value}</td></tr>`;}
 function specSheetInner(){const VH=veh(),v=S.ego?S.ego.speed:S.speed,ve=v/3.6,lat=T_DSP+T_FILTER+VH.tAct,dReact=ve*lat,dMech=ve*ve/(2*VH.decel),dReq=dReact+dMech+BUFFER;
