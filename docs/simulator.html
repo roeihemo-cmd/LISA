@@ -328,10 +328,11 @@ function update(dt){S.t+=dt;
   const vt=S.target.speed/3.6,rel=v.avoided?-(Math.abs(ve)+4):(vt-ve);
   S.range=Math.max(1.5,Math.min(MAXV,S.range+rel*dt));S.scroll=(S.scroll+ve*dt*9)%2000;
   // --- outcome detection -> freeze the screen for 3 s, then reset ---
-  const inFront=Math.abs(v.x-S.target.lat)<0.45;   // target laterally in front of our bumper
-  if(v.speed<0.5&&(v.braking||S.committed)&&S.range>2.2)freeze("VEHICLE SAFELY STOPPED","#39d98a"); // braked to a full stop (any distance ahead of the target)
-  else if(S.range<=2.2&&v.speed>2&&inFront&&!v.avoided&&!v.merging)freeze("COLLISION OCCURRED","#ff2532"); // reached the target while it is physically in front
-  else if(v.avoided&&S.range>=MAXV-2)freeze("COLLISION AVOIDED — LANE CHANGE","#39d98a");}          // steered clear
+  const inFront=Math.abs(v.x-S.target.lat)<0.5;    // target laterally in front of our bumper
+  // Exhaustive & ordered so a stop right at the target still counts as impact (no gap -> no FOLLOW flip):
+  if(S.range<=2.5&&inFront&&!v.avoided&&!v.merging)freeze("COLLISION OCCURRED","#ff2532");           // reached the target
+  else if(v.speed<0.5&&(v.braking||S.committed)&&S.range>2.5)freeze("VEHICLE SAFELY STOPPED","#39d98a"); // stopped short of it
+  else if(v.avoided&&S.range>=MAXV-2)freeze("COLLISION AVOIDED — LANE CHANGE","#39d98a");}           // steered clear
 function runScan(){const pts=[],R=S.range,egoLat=S.ego.x*LANE_W,tLat=S.target.lat*LANE_W;
   for(let i=0;i<LINES;i++){const ang=-FOV+(2*FOV)*i/(LINES-1),lat=egoLat+R*Math.tan(ang);
     if(Math.abs(lat-tLat)>TARGET_HALF)continue;const p=LiDAR.detect(R/Math.cos(ang),1,S.rho,S.fog,S.noise);pts.push({lat,det:p.detected});}S.scan=pts;}
@@ -625,7 +626,10 @@ function drawDOM(){$("m-true").textContent=S.range.toFixed(1)+" m";$("m-sm").tex
   $("tgt-label").textContent=S.target.baseLabel;$("closing").textContent="closing Δv: "+(S.speedDiff>=0?"+":"")+S.speedDiff.toFixed(0)+" km/h";
   $("closing").style.color=S.speedDiff>DV_THR?"var(--red)":"var(--green)";
   const dec=$("dec");
-  if(S.inevitable){dec.textContent="COLLISION INEVITABLE";dec.style.color="#ff2532";dec.style.borderColor="#ff2532";dec.classList.add("danger");}
+  if(S.frozen){const isCol=S.freezeCol==="#ff2532";
+    dec.textContent=isCol?"COLLISION OCCURRED":(S.freezeMsg.indexOf("AVOIDED")>=0?"COLLISION AVOIDED":"SAFELY STOPPED");
+    dec.style.color=S.freezeCol;dec.style.borderColor=S.freezeCol;dec.classList.toggle("danger",isCol);}
+  else if(S.inevitable){dec.textContent="COLLISION INEVITABLE";dec.style.color="#ff2532";dec.style.borderColor="#ff2532";dec.classList.add("danger");}
   else{dec.classList.remove("danger");
     const c={CRUISE:"--cyan",AEB:"--red","LANE MERGE":"--green",FOLLOW:"--amber",
       SLOWING:"--amber",ROUNDABOUT:"--amber"}[S.decision]||"--cyan";
