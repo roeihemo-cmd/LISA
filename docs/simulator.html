@@ -68,6 +68,10 @@
   .warnbox .t{font-family:var(--mono);font-weight:700;font-size:.82rem;color:#ff5560;letter-spacing:.03em}
   .warnbox .d{font-size:.76rem;color:#ffb3b8;line-height:1.5}
   .decbox.danger{animation:dangerFlash .8s infinite}
+  .fognote{border:1px solid #ffb020;border-radius:10px;padding:10px 12px;background:#1a1405;
+    display:flex;flex-direction:column;gap:5px}
+  .fognote .t{font-family:var(--mono);font-weight:700;font-size:.78rem;color:#ffc65a}
+  .fognote .d{font-size:.74rem;color:#e8d6a8;line-height:1.5}
   .infobtn{cursor:pointer;color:#0b1017;background:var(--cyan);border-radius:50%;width:16px;height:16px;
     font-size:.66rem;font-weight:700;display:inline-flex;align-items:center;justify-content:center;border:none}
   /* modal */
@@ -137,6 +141,7 @@
       <div class="m"><span class="k">P_rec</span><span class="v" id="m-prec">—</span></div>
     </div>
     <div id="warnbox" class="warnbox" style="display:none"></div>
+    <div id="fognote" class="fognote" style="display:none"></div>
     <canvas id="graphs" height="300"></canvas>
     <h2 id="scenmath-title">Scenario Math</h2>
     <div id="scenmath" style="display:flex;flex-direction:column;gap:8px"></div>
@@ -267,6 +272,9 @@ function update(dt){S.t+=dt;
   // smaller AND TTC is critical, no amount of braking can stop in time.
   const dMinStop=ve*ve/(2*VH.decel)+ve*(T_DSP+T_FILTER+VH.tAct);S.dMinStop=dMinStop;
   S.inevitable=det.detected&&inLane&&!v.avoided&&sm!=null&&sm<dMinStop&&isFinite(S.ttc)&&S.ttc<1.0;
+  // HARD LOCKOUT: once impact is unavoidable, disable ALL steering — abort any lane
+  // change in progress, hold the lane, and brake at maximum until impact.
+  if(S.inevitable){v.merging=false;v.tx=v.x;if(!v.braking){v.braking=true;v.coast=T_DSP+T_FILTER+VH.tAct;}v.brakeTarget=0;S.decision="AEB";S.committed=true;}
   runScan();
 
   // ---- ROUNDABOUT: ego follows the circular lane around the central island ----
@@ -629,7 +637,12 @@ function drawDOM(){$("m-true").textContent=S.range.toFixed(1)+" m";$("m-sm").tex
   if(S.inevitable){wb.style.display="flex";
     wb.innerHTML=`<div class="t">⛔ UNAVOIDABLE COLLISION</div><div class="d rtl">${bidi(
       `מרחק הבלימה הפיזיקלי הנדרש (${S.dMinStop.toFixed(0)} מטרים) גדול מהמרחק הקיים (${(S.sm||S.range).toFixed(0)} מטרים). במידה וההגה אינו מסיט את הרכב, התנגשות היא בלתי נמנעת גם תחת בלימת חירום מרבית.`)}</div>`;}
-  else wb.style.display="none";}
+  else wb.style.display="none";
+  // sensor-limitation note: in fog the LiDAR range collapses (Beer-Lambert)
+  const fn=$("fognote");
+  if(S.fog>0.06&&(S.blinded||S.inevitable)){fn.style.display="flex";
+    fn.innerHTML=`<div class="t">⚠ SENSOR LIMITATION — FOG</div><div class="d">Fog collapses the LiDAR detection range (Beer–Lambert e^−2αR), so the target is seen too late to stop. LiDAR alone cannot solve this — a fog-penetrating <b>RADAR</b> and sensor fusion are required in real ADAS.</div>`;}
+  else fn.style.display="none";}
 
 // ===== EQUATION REGISTRY (per-term explanations) =====
 const EQ={
