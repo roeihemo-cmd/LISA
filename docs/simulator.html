@@ -67,6 +67,12 @@
     animation:dangerFlash 1s infinite;display:flex;flex-direction:column;gap:6px}
   .warnbox .t{font-family:var(--mono);font-weight:700;font-size:.82rem;color:#ff5560;letter-spacing:.03em}
   .warnbox .d{font-size:.76rem;color:#ffb3b8;line-height:1.5}
+  .warnbox .wtab{display:flex;flex-direction:column;gap:4px;margin-top:2px}
+  .warnbox .wrow{display:flex;justify-content:space-between;align-items:center;gap:10px;
+    padding:5px 8px;background:#2a0a0d;border-radius:6px}
+  .warnbox .wlbl{font-size:.74rem;color:#ffb3b8}
+  .warnbox .wval{font-family:var(--mono);font-weight:700;font-size:.86rem;display:flex;align-items:baseline;gap:7px}
+  .warnbox .wen{font-family:var(--mono);font-weight:600;font-size:.6rem;color:#8a9099;letter-spacing:.04em}
   .decbox.danger{animation:dangerFlash .8s infinite}
   .fognote{border:1px solid #ffb020;border-radius:10px;padding:10px 12px;background:#1a1405;
     display:flex;flex-direction:column;gap:5px}
@@ -680,8 +686,14 @@ function drawDOM(){$("m-true").textContent=S.range.toFixed(1)+" m";$("m-sm").tex
   // unavoidable-collision explanation panel
   const wb=$("warnbox");
   if(S.inevitable){wb.style.display="flex";
-    wb.innerHTML=`<div class="t">⛔ UNAVOIDABLE COLLISION</div><div class="d rtl">${bidi(
-      `מרחק הבלימה הפיזיקלי הנדרש (${S.dReq.toFixed(1)} מ', STOP REQ) גדול מהמרחק הקיים. (מרחק פיזי בפועל: ${S.range.toFixed(1)} מ', TRUE RANGE | זיהוי חיישן בערפל: ${(S.sm||S.range).toFixed(1)} מ', EST). במידה וההגה אינו מסיט את הרכב, התנגשות היא בלתי נמנעת גם תחת בלימת חירום מרבית.`)}</div>`;}
+    const row=(lbl,en,val,col)=>`<div class="wrow"><span class="wlbl rtl">${bidi(lbl)}</span><span class="wval" style="color:var(${col})"><bdi>${val} m</bdi><span class="wen">${en}</span></span></div>`;
+    wb.innerHTML=`<div class="t">⛔ UNAVOIDABLE COLLISION</div>`
+      +`<div class="d rtl">${bidi("מרחק הבלימה הפיזיקלי הנדרש גדול מהמרחק הקיים — לכן, במידה וההגה אינו מסיט את הרכב, התנגשות היא בלתי נמנעת גם תחת בלימת חירום מרבית:")}</div>`
+      +`<div class="wtab">`
+      +row("מרחק בלימה נדרש","STOP REQ",S.dReq.toFixed(1),"--amber")
+      +row("מרחק פיזי בפועל","TRUE RANGE",S.range.toFixed(1),"--cyan")
+      +row("זיהוי חיישן בערפל","EST · MA8",(S.sm||S.range).toFixed(1),"--green")
+      +`</div>`;}
   else wb.style.display="none";
   // sensor-limitation note: in fog the LiDAR range collapses (Beer-Lambert)
   const fn=$("fognote");
