@@ -230,11 +230,10 @@ class Target{constructor(s,vsafe){this.type=s.type;this.beh=s.beh;this.speed=s.b
   update(dt){this.timer+=dt;
     if(this.beh==="brake"&&this.timer>=3){this.braking=true;this.speed=Math.max(0,this.speed-LEAD_HARD_DECEL*dt);}
     else if(this.beh==="cutin"){this.lat+=(0-this.lat)*Math.min(1,0.4*dt);if(this.timer>2)this.lat=Math.max(0,this.lat-0.35*dt);}
-    else if(this.beh==="cross"){                 // smooth, steady linear perpendicular crossing
-      const spd=this.type==="child"?1.05:0.8;    // constant lateral speed (no jitter)
-      this.lat+=this.dir*spd*dt;
-      if(this.lat>1.9){this.lat=1.9;this.dir=-1;}if(this.lat<-1.9){this.lat=-1.9;this.dir=1;}
-      const bt=this.lat+this.dir*0.6;this.ballLat+=(bt-this.ballLat)*Math.min(1,5*dt);}}  // ball eases ahead (no teleport)
+    else if(this.beh==="cross"){                 // one-way, slow, perfectly straight crossing (no ping-pong)
+      const spd=this.type==="child"?0.55:0.42;   // low walking/running speed
+      this.lat+=this.dir*spd*dt;                  // single direction only, to the other side
+      const bt=this.lat+this.dir*0.5;this.ballLat+=(bt-this.ballLat)*Math.min(1,5*dt);}}     // ball eases just ahead
   inLane(){return Math.abs(this.lat)<0.6;}}
 
 // ===== STATE =====
@@ -284,27 +283,26 @@ function update(dt){S.t+=dt;
   if(S.inevitable){v.merging=false;v.tx=v.x;if(!v.braking){v.braking=true;v.coast=T_DSP+T_FILTER+VH.tAct;}v.brakeTarget=0;S.decision="AEB";S.committed=true;}
   runScan();
 
-  // ---- ROUNDABOUT (top-down): approach & slow -> circle the island -> exit ----
+  // ---- ROUNDABOUT (driver perspective): approach & slow -> curve around the island -> exit ----
   if(S.target.type==="roundabout"){
     const vsafe=curveVsafe();S.inevitable=false;v.braking=false;v.merging=false;
+    const smf=t=>t*t*(3-2*t);
     if(S.rndPhase==="approach"){
-      v.cruise=Math.min(S.speed,vsafe);v.update(dt,VH);  // decelerate toward safe entry speed (never speed up)
-      S.appDist-=(v.speed/3.6)*dt;                       // roundabout draws nearer
+      v.cruise=Math.min(S.speed,vsafe);v.update(dt,VH);   // slow toward safe entry speed (never speed up)
+      S.appDist-=(v.speed/3.6)*dt;S.range=Math.max(6,S.appDist);  // island grows as we near it
+      S.curve+=(0-S.curve)*Math.min(1,4*dt);S.target.lat=0;       // straight, island dead ahead
       S.decision="SLOWING";
       if(S.appDist<=0){
         if(v.speed>vsafe+4){if(!S.frozen)freeze("COLLISION OCCURRED","#ff2532");}  // entered too fast -> skid
-        else{S.rndPhase="arc";S.rndProg=0;}
+        else{S.rndPhase="turn";S.rndProg=0;}
       }
-    }else if(S.rndPhase==="arc"){
-      v.cruise=vsafe;v.update(dt,VH);S.decision="ROUNDABOUT";
-      S.rndProg+=(v.speed/3.6)/(ROUND_R*3.6)*dt;         // travel along the ring
-      if(S.rndProg>=1){S.rndPhase="exit";S.rndProg=0;}
     }else{
-      v.cruise=S.speed;v.update(dt,VH);S.decision="ROUNDABOUT";
-      S.rndProg+=dt*0.6;                                 // drive out of the exit
+      v.cruise=vsafe;v.update(dt,VH);S.decision="ROUNDABOUT";
+      S.rndProg+=dt/3.4;const p=Math.min(1,S.rndProg);
+      S.curve=(p<0.3?smf(p/0.3):p<0.7?1:1-smf((p-0.7)/0.3));      // road bends right, holds, then straightens
+      S.range=11;S.target.lat=-1.35;                              // island close on our left (inside of the curve)
       if(S.rndProg>=1&&!S.frozen)freeze("ROUNDABOUT CLEARED SAFELY","#39d98a");
     }
-    S.range=(S.rndPhase==="approach")?Math.max(4,S.appDist):4;
     S.scroll=(S.scroll+(v.speed/3.6)*dt*9)%2000;
     return;
   }
@@ -340,6 +338,8 @@ function update(dt){S.t+=dt;
   const vt=S.target.speed/3.6,rel=v.avoided?-(Math.abs(ve)+4):(vt-ve);
   S.range=Math.max(1.5,Math.min(MAXV,S.range+rel*dt));S.scroll=(S.scroll+ve*dt*9)%2000;
   // --- outcome detection -> freeze the screen for 3 s, then reset ---
+  // pedestrian/child finished crossing without incident -> new crossing (no ping-pong)
+  if((S.target.type==="ped"||S.target.type==="child")&&Math.abs(S.target.lat)>2.3&&!S.frozen&&!S.committed){reset();return;}
   const inFront=Math.abs(v.x-S.target.lat)<0.5;    // target laterally in front of our bumper
   // Exhaustive & ordered so a stop right at the target still counts as impact (no gap -> no FOLLOW flip):
   if(S.range<=2.5&&inFront&&!v.avoided&&!v.merging)freeze("COLLISION OCCURRED","#ff2532");           // reached the target
@@ -660,11 +660,14 @@ const EQ={
       ["V²/(2·μ·g)",`מרחק הבלימה המכני מרגע נעילת הבלמים, לפי אחיזה μ=${VH.mu} וכובד g=9.81.`],
       ["D_buffer = 5 m","מרווח ביטחון קבוע נגד עצירה פגוש מול פגוש."]];},
     note:"מרחק הבלימה גדל בריבוע המהירות V² — ולכן המהירות היא הגורם המסוכן ביותר."},
-  lidar:{short:"P_rec = P_tx·ρ·(A_rx/πR²)·e^(−2αR)",title:"LiDAR Power & RCS",
-    sub:"כמה אור חוזר מהמטרה — קריטי במיוחד להולך רגל.",full:"P_rec = P_tx · ρ · (A_rx / (π·R²)) · e^(−2αR)",
-    terms:()=>[["P_rec","עוצמת האות האופטי הנקלט חזרה בחיישן."],["P_tx","עוצמת הפולס שהלייזר שידר."],
-      ["ρ (rho)",`הערך הנוכחי ρ=${S.rho.toFixed(2)}. מקדם ההחזרה: רכב 0.5–0.8, הולך רגל בערך 0.1.`],
-      ["A_rx / (π·R²)","שבר האור שנתפס במקלט, דועך כמו 1/R²."],["e^(−2αR)","ניחות אטמוספרי דו-כיווני."]],
+  lidar:{short:"P_rec = P_tx·ρ·(D²/4R²)·e^(−2αR)",title:"LiDAR Power & RCS",
+    sub:"כמה אור חוזר מהמטרה — קריטי במיוחד להולך רגל.",full:"P_rec = P_tx · ρ · (D² / (4·R²)) · e^(−2αR)",
+    terms:()=>[["P_rec","הספק האור החוזר הנקלט במערכת (Received Power)."],
+      ["P_tx","הספק הלייזר המשודר מתוך המכשיר (Transmitted Power)."],
+      ["ρ (רו)",`מקדם ההחזרה / רפלקטיביות של המטרה. הערך הנוכחי ρ=${S.rho.toFixed(2)} (רכב 0.5–0.8, הולך רגל ≈0.1).`],
+      ["D","קוטר עדשת המקלט (Receiver Lens Diameter). במערכות LiDAR לרכב (Velodyne / Luminar) נע בין 20mm ל-50mm, כלומר 0.02–0.05 m."],
+      ["R","המרחק הפיזיקלי למטרה במטרים (Range)."],
+      ["α (אלפא)","מקדם הניחות של האוויר — רמת הערפל והאבק (Attenuation Coefficient)."]],
     note:"הולך רגל עם ρ=0.1 מחזיר פי 5 פחות אנרגיה מרכב — מה שמפיל את ה-SNR ומאלץ את ה-Matched Filter לחלץ את הפיק מהרעש."},
   beer:{short:"I = I₀·e^(−2αR)",title:"Beer–Lambert Attenuation",sub:"כיצד ערפל בולע את אלומת הלייזר.",
     full:"I = I₀ · e^(−2αR)",terms:()=>[["α (alpha)","מקדם פיזור ובליעה של חלקיקי מים באוויר, כלומר ערפל."],
@@ -787,8 +790,7 @@ window.addEventListener("resize",()=>{fitScene();fitGraphs();});
 
 // ===== LOOP =====
 let last=0;function frame(ts){const dt=Math.min((ts-last)/1000||0.016,0.05);last=ts;update(dt);
-  if(S.scenKey==="roundabout")drawRoundScene();else drawScene();
-  drawGraphs();drawDOM();
+  drawScene();drawGraphs();drawDOM();
   if(S.specOpen){const w=document.getElementById("specWrap");if(w)w.innerHTML=specSheetInner();else S.specOpen=false;}
   requestAnimationFrame(frame);}
 updateScenBtn();applyScenario();reset();fitScene();fitGraphs();updateLabels();requestAnimationFrame(frame);
