@@ -770,7 +770,7 @@ function openEq(key){S.specOpen=false;const e=EQ[key];let dl="";
   if(e.deriv){const steps=e.deriv.map(([f,n])=>`<div class="dstep"><span class="f">${f}</span><span class="n">${bidi(n)}</span></div>`).join("");
     deriv=`<div class="derivbox"><div class="dt">Mathematical Derivation · פיתוח מתמטי</div>${steps}</div>`
       +(e.derivNote?`<div class="note rtl">${bidi(e.derivNote)}</div>`:"");}
-  openModal(`<h3>${e.title}</h3><div class="sub rtl">${bidi(e.sub)}</div><div class="eq">${e.full}</div><dl>${dl}</dl><div class="note rtl">${bidi(e.note)}</div>${deriv}`);}
+  openModal(`<h3>${e.title}</h3><div class="sub rtl">${bidi(e.sub)}</div><div class="eq">${e.full}</div>${deriv}<dl>${dl}</dl><div class="note rtl">${bidi(e.note)}</div>`);}
 function specRow(label,value,explain){return `<tr><td>${label}<div class="ex rtl">${bidi(explain)}</div></td><td>${value}</td></tr>`;}
 function specSheetInner(){const VH=veh(),v=S.ego?S.ego.speed:S.speed,ve=v/3.6,lat=T_DSP+T_FILTER+VH.tAct,dReact=ve*lat,dMech=ve*ve/(2*VH.decel),dReq=dReact+dMech+BUFFER;
   const actHe=VH.act==="pneumatic"?"פנאומטית":"הידראולית";
