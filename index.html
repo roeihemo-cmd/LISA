@@ -192,9 +192,9 @@ const SCEN={
   fog:{type:"car",beh:"slow",fog:0.22,rho:0.6,v0:40,lat0:0,label:"LEAD IN HEAVY FOG",
     name:"Heavy Fog",desc:"low visibility",icon:"fog",eqs:["beer","lidar","braking"],
     challenge:"Heavy fog attenuates the laser beam (Beer-Lambert) — the target is only detected at very short range."},
-  static:{type:"obstacle",beh:"static",fog:0.02,rho:0.4,v0:0,lat0:0,label:"STATIC OBSTACLE",
-    name:"Static Obstacle",desc:"stationary hazard",icon:"obstacle",eqs:["matched","braking"],
-    challenge:"A sudden stationary obstacle (barrier / cone). The car stops or steers around it by braking distance."},
+  static:{type:"obstacle",beh:"static",fog:0.02,rho:0.4,v0:0,lat0:0,label:"ROAD WORKS AHEAD",
+    name:"Road Works",desc:"roadworks — stop",icon:"obstacle",eqs:["matched","braking"],
+    challenge:"Road works close the lane — cones, workers and a flashing STOP sign. The car must brake to a stop before them."},
   roundabout:{type:"roundabout",beh:"curve",fog:0.02,rho:0.6,v0:0,lat0:0,label:"ROUNDABOUT ENTRY",
     name:"Traffic Roundabout",desc:"curved speed zone",icon:"round",eqs:["curve","braking"],
     challenge:"Entering a roundabout — the car slows to the safe cornering speed Vmax=√(μ·g·r) and follows the circular lane."},
@@ -418,8 +418,9 @@ function drawRoundScene(){const g=sctx,cx=SW/2,cy=SH*0.46,R=Math.min(SW,SH)*0.28
   else if(S.rndPhase==="arc"){const pp=Math.min(1,S.rndProg),th=Math.PI/2-pp*1.5*Math.PI; // 270° around
     ex=cx+R*Math.cos(th);ey=cy+R*Math.sin(th);const tan=Math.atan2(-Math.cos(th),Math.sin(th));
     eh=pp<0.14?lerpAng(-Math.PI/2,tan,pp/0.14):tan;}                 // smooth entry: blend up-heading into the tangent
-  else{const e=sm(Math.min(1,S.rndProg)),th=-Math.PI;const rr2=R+e*Math.max(SW,SH);
-    ex=cx+rr2*Math.cos(th);ey=cy+rr2*Math.sin(th);eh=lerpAng(Math.atan2(-Math.cos(th),Math.sin(th)),th,sm(Math.min(1,S.rndProg*1.4)));} // smooth exit
+  else{const p=sm(Math.min(1,S.rndProg));                            // smooth exit: Bezier curve back down onto the road
+    const P=[[cx-R,cy],[cx-R,cy+R*1.3],[cx,cy+ro+50],[cx,SH+60]];
+    const q=bez(P,p),d=bezD(P,p);ex=q[0];ey=q[1];eh=Math.atan2(d[1],d[0]);}
   drawRingBeam(ex,ey,eh);
   drawCarRot(ex,ey,eh,0.92,hostShape(),S.ego.braking&&S.ego.speed>0.1,true);
   S.roundEgo={x:ex,y:ey};
@@ -443,9 +444,12 @@ function drawScene(){sctx.clearRect(0,0,SW,SH);sctx.fillStyle="#070a10";sctx.fil
     sctx.strokeStyle="rgba(220,224,230,.65)";sctx.lineWidth=1+3*(yy-hy)/(ey-hy);sctx.beginPath();sctx.moveTo(wX(ln,yy),yy);sctx.lineTo(wX(ln,y2),y2);sctx.stroke();}}
   drawTarget();drawBeam();drawHost();drawFog();drawHUD();}
 
+function drawCrosswalk(y,sc){const n=7,hw=1.6,wbar=0.11;   // zebra crossing across the road at depth y
+  for(let i=0;i<n;i++){const wx=-hw+(2*hw)*i/(n-1),x1=wX(wx-wbar,y),x2=wX(wx+wbar,y);
+    sctx.fillStyle="rgba(235,238,242,.5)";sctx.fillRect(Math.min(x1,x2),y-9*sc,Math.abs(x2-x1),18*sc);}}
 function drawTarget(){const yF=r2y(S.range),sc=0.25+0.9*(yF-HZ())/(EY()-HZ()),sx=wX(S.target.lat,yF);
-  if(S.target.type==="ped")drawPed(sx,yF,sc,S.target.dir,false,true);
-  else if(S.target.type==="child"){drawBall(wX(S.target.ballLat,yF),yF+6*sc,sc);drawPed(sx,yF,sc,S.target.dir,true,true);}
+  if(S.target.type==="ped"){drawCrosswalk(yF,sc);drawPed(sx,yF,sc,S.target.dir,false,true);}
+  else if(S.target.type==="child"){drawCrosswalk(yF,sc);drawBall(wX(S.target.ballLat,yF),yF+6*sc,sc);drawPed(sx,yF,sc,S.target.dir,true,true);}
   else if(S.target.type==="obstacle")drawObstacle(sx,yF,sc);
   else if(S.target.type==="roundabout")drawRound(sx,yF,sc);
   else drawVehicle(sx,yF,sc,{w:46,h:80,body:S.detected?"#7a3038":"#39414d",cab:"#0b1420",trim:"#39d98a",kind:"sedan"},S.target.braking,false);
@@ -523,16 +527,27 @@ function drawBall(x,y,sc){const r=6*sc;sctx.fillStyle="#ff6a2a";sctx.beginPath()
   sctx.strokeStyle="#7a2d10";sctx.lineWidth=1.4*sc;sctx.beginPath();sctx.arc(x,y,r,0,7);sctx.stroke();
   sctx.beginPath();sctx.moveTo(x-r,y);sctx.lineTo(x+r,y);sctx.moveTo(x,y-r);sctx.lineTo(x,y+r);sctx.stroke();}
 
-function drawObstacle(x,y,sc){const s=sc; // traffic cone + barrier
-  sctx.fillStyle="rgba(0,0,0,.4)";sctx.beginPath();sctx.ellipse(x,y+14*s,20*s,5*s,0,0,7);sctx.fill();
-  // barrier board with stripes
-  sctx.fillStyle="#e8a020";rr(x-22*s,y-4*s,44*s,12*s,3*s);sctx.fill();
-  sctx.save();sctx.beginPath();rr(x-22*s,y-4*s,44*s,12*s,3*s);sctx.clip();sctx.strokeStyle="#141414";sctx.lineWidth=6*s;
-  for(let i=-6;i<8;i++){sctx.beginPath();sctx.moveTo(x-22*s+i*9*s,y+10*s);sctx.lineTo(x-22*s+i*9*s+9*s,y-6*s);sctx.stroke();}sctx.restore();
-  // cone
-  sctx.fillStyle="#ff6a2a";sctx.beginPath();sctx.moveTo(x,y-22*s);sctx.lineTo(x-8*s,y+10*s);sctx.lineTo(x+8*s,y+10*s);sctx.closePath();sctx.fill();
-  sctx.fillStyle="#fff";rr(x-6*s,y-6*s,12*s,4*s,1);sctx.fill();
-  sctx.strokeStyle=S.detected?"#39d98a":"#ff4d6d";sctx.lineWidth=2.5;sctx.strokeRect(x-24*s,y-24*s,48*s,40*s);}
+function drawCone(x,y,s){sctx.fillStyle="#ff6a2a";sctx.beginPath();sctx.moveTo(x,y-14*s);sctx.lineTo(x-6*s,y+4*s);sctx.lineTo(x+6*s,y+4*s);sctx.closePath();sctx.fill();
+  sctx.fillStyle="#fff";rr(x-4.2*s,y-4*s,8.4*s,2.6*s,1);sctx.fill();sctx.fillStyle="#0f1216";rr(x-6.5*s,y+3.5*s,13*s,2*s,1);sctx.fill();}
+function drawWorker(x,y,s){ // hi-vis road worker
+  sctx.fillStyle="rgba(0,0,0,.35)";sctx.beginPath();sctx.ellipse(x,y+15*s,6*s,2.5*s,0,0,7);sctx.fill();
+  sctx.fillStyle="#3a4150";rr(x-2.4*s,y+2*s,2.6*s,12*s,1);sctx.fill();rr(x+0.2*s,y+2*s,2.6*s,12*s,1);sctx.fill();       // legs
+  sctx.fillStyle="#ffcf33";rr(x-4.5*s,y-9*s,9*s,13*s,3*s);sctx.fill();                                                 // hi-vis vest
+  sctx.strokeStyle="#c9c9c9";sctx.lineWidth=1.2*s;sctx.beginPath();sctx.moveTo(x-4*s,y-4*s);sctx.lineTo(x+4*s,y-4*s);sctx.stroke();
+  sctx.fillStyle="#f2c191";sctx.beginPath();sctx.arc(x,y-13*s,4*s,0,7);sctx.fill();                                    // head
+  sctx.fillStyle="#ff8c1a";sctx.beginPath();sctx.arc(x,y-14.5*s,4.2*s,Math.PI,0);sctx.fill();}                         // helmet
+function drawObstacle(x,y,sc){const s=sc*1.05; // ROAD WORKS: cones, worker, flashing stop sign
+  // cones spread across the closed lane
+  for(let i=-2;i<=2;i++)drawCone(x+i*12*s,y+8*s-Math.abs(i)*2*s,s);
+  drawWorker(x-16*s,y-2*s,s);                                                   // worker on the side
+  // flashing amber STOP sign on a pole
+  const blink=Math.sin(S.t*6)>0;
+  sctx.strokeStyle="#7a8290";sctx.lineWidth=2.5*s;sctx.beginPath();sctx.moveTo(x+18*s,y+6*s);sctx.lineTo(x+18*s,y-14*s);sctx.stroke();
+  sctx.save();sctx.translate(x+18*s,y-20*s);
+  sctx.fillStyle=blink?"#ff9500":"#5a3a00";if(blink){sctx.shadowColor="#ff9500";sctx.shadowBlur=14*s;}
+  sctx.beginPath();for(let k=0;k<8;k++){const a=k*Math.PI/4+Math.PI/8;const rr3=8*s;sctx.lineTo(Math.cos(a)*rr3,Math.sin(a)*rr3);}sctx.closePath();sctx.fill();sctx.shadowBlur=0;
+  sctx.fillStyle="#1a1200";sctx.font="bold "+(6*s)+"px system-ui";sctx.textAlign="center";sctx.fillText("STOP",0,2*s);sctx.textAlign="left";sctx.restore();
+  if(S.detected){sctx.strokeStyle="#39d98a";sctx.lineWidth=2;sctx.strokeRect(x-30*s,y-26*s,60*s,42*s);}}
 
 function drawRound(x,y,sc){const g=sctx,s=sc; // a full roundabout lying on the road (flattened ellipse for perspective)
   const rw=Math.max(70,150*s),rh=rw*0.42;      // outer ring radii
@@ -737,7 +752,7 @@ function specSheetInner(){const VH=veh(),v=S.ego?S.ego.speed:S.speed,ve=v/3.6,la
 function openSpec(){S.specOpen=true;openModal(`<div id="specWrap">${specSheetInner()}</div>`);}
 
 // ===== SCENARIO PICKER (window with preview screenshots) =====
-const SC_EMOJI={cutin:"↩️",brake:"🛑",ped:"🚶",child:"🧒",fog:"🌫️",obstacle:"⚠️",round:"🔄"};
+const SC_EMOJI={cutin:"↩️",brake:"🛑",ped:"🚶",child:"🧒",fog:"🌫️",obstacle:"🚧",round:"🔄"};
 function scenPreview(key){const sc=SCEN[key];const road=`<polygon points="72,14 148,14 206,116 14,116" fill="#141a24"/>
    <line x1="110" y1="14" x2="110" y2="116" stroke="#2a3646" stroke-width="2" stroke-dasharray="5 6"/>
    <line x1="72" y1="14" x2="14" y2="116" stroke="#00e0ff" stroke-opacity=".4" stroke-width="2"/>
@@ -750,16 +765,20 @@ function scenPreview(key){const sc=SCEN[key];const road=`<polygon points="72,14 
     <rect x="100" y="52" width="20" height="15" rx="4" fill="#39414d"/>`;act="→ FOLLOW";ac="#ffb020";}
   else if(key==="brake"){el=`<rect x="99" y="46" width="22" height="17" rx="4" fill="#7a3038" stroke="#39d98a"/>
     <circle cx="103" cy="62" r="2.6" fill="#ff2d3a"/><circle cx="117" cy="62" r="2.6" fill="#ff2d3a"/>`;act="🚨 AEB STOP";ac="#ff4d6d";}
-  else if(key==="ped"||key==="child"){const sm=key==="child"?0.8:1;el=`<g stroke="#39d98a" stroke-width="${2.6*sm}" fill="#39d98a" stroke-linecap="round">
-    <circle cx="102" cy="${48}" r="${4*sm}"/><line x1="102" y1="${52}" x2="102" y2="${64}"/>
-    <line x1="102" y1="56" x2="108" y2="60"/><line x1="102" y1="56" x2="97" y2="60"/>
-    <line x1="102" y1="64" x2="108" y2="72"/><line x1="102" y1="64" x2="97" y2="72"/></g>
-    <path d="M108 50 L122 50" stroke="#ffb020" stroke-width="2"/><path d="M118 47 L122 50 L118 53" stroke="#ffb020" stroke-width="2" fill="none"/>
-    ${key==="child"?'<circle cx="124" cy="66" r="4" fill="#ff6a2a"/>':''}`;act=key==="child"?"🚨 AEB / EVADE":"🚨 AEB STOP";ac="#ff4d6d";}
+  else if(key==="ped"||key==="child"){const col=key==="child"?"#ff7043":"#8a94a4";
+    el=`<g fill="rgba(235,238,242,.5)"><rect x="72" y="50" width="9" height="20"/><rect x="90" y="50" width="9" height="20"/><rect x="108" y="50" width="9" height="20"/><rect x="126" y="50" width="9" height="20"/></g>
+    <g><circle cx="150" cy="47" r="5" fill="#e2cba6"/><rect x="145" y="51" width="10" height="14" rx="3" fill="${col}"/>
+    <rect x="141" y="52" width="3" height="10" rx="1" fill="${col}"/><rect x="156" y="52" width="3" height="10" rx="1" fill="${col}"/>
+    <rect x="146" y="64" width="3.4" height="9" fill="#464e5c"/><rect x="151" y="64" width="3.4" height="9" fill="#464e5c"/></g>
+    <path d="M143 45 L127 45" stroke="#ffb020" stroke-width="2"/><path d="M131 42 L127 45 L131 48" stroke="#ffb020" stroke-width="2" fill="none"/>
+    ${key==="child"?'<circle cx="122" cy="60" r="4" fill="#ff6a2a"/>':''}`;act="🚨 AEB STOP";ac="#ff4d6d";}
   else if(key==="fog"){el=`<rect x="99" y="50" width="22" height="16" rx="4" fill="#39414d" stroke="#8aa0b5"/>
     <rect x="14" y="14" width="192" height="102" fill="#c8ced6" opacity=".38"/>`;act="⚠️ SENSOR BLIND";ac="#ffb020";}
-  else if(key==="obstacle"){el=`<polygon points="110,44 102,66 118,66" fill="#ff6a2a"/><rect x="104" y="54" width="12" height="3" fill="#fff"/>
-    <rect x="92" y="66" width="36" height="7" rx="2" fill="#e8a020"/>`;act="STOP / MERGE";ac="#e8a020";}
+  else if(key==="obstacle"){el=`<g>
+    <polygon points="98,52 94,66 102,66" fill="#ff6a2a"/><polygon points="110,52 106,66 114,66" fill="#ff6a2a"/><polygon points="122,52 118,66 126,66" fill="#ff6a2a"/>
+    <rect x="86" y="55" width="6" height="11" rx="2" fill="#ffcf33"/><circle cx="89" cy="50" r="3" fill="#f2c191"/>
+    <line x1="132" y1="66" x2="132" y2="50" stroke="#7a8290" stroke-width="2"/><circle cx="132" cy="46" r="6" fill="#ff9500"/>
+    <text x="132" y="48" font-size="4" fill="#1a1200" text-anchor="middle" font-family="sans-serif">STOP</text></g>`;act="🚧 AEB STOP";ac="#e8a020";}
   else if(key==="round"){el=`<circle cx="110" cy="52" r="17" fill="none" stroke="#ffb020" stroke-width="4"/>
     <circle cx="110" cy="52" r="7" fill="#1c2634"/>`;act="SLOW → Vmax";ac="#ffb020";}
   return `<svg viewBox="0 0 220 130">${road}${el}${ego}
