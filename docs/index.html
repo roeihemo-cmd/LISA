@@ -243,14 +243,14 @@ const S={speed:90,fog:0.02,rho:0.6,noise:0.15,vehKey:"tesla",scenKey:"cutin",
   following:false,ma:new MA(MA_WIN),detected:false,raw:null,sm:null,dMech:0,dReq:0,snr:0,
   speedDiff:0,ttc:Infinity,prec:0,scan:[],last:null,blinded:false,stopTimer:0,specOpen:false,
   inevitable:false,dMinStop:0,frozen:false,freezeTimer:0,freezeMsg:"",freezeCol:"#39d98a",lastSm:null,holdT:0,
-  roundAngle:Math.PI/2,leadAngle:Math.PI/2+0.55,roundEgo:null,roundEntry:0,roundPhase:"entry",exitProg:0,prevEgoX:0,steerAng:0,rndT:0,curve:0};
+  roundAngle:Math.PI/2,leadAngle:Math.PI/2+0.55,roundEgo:null,roundEntry:0,roundPhase:"entry",exitProg:0,prevEgoX:0,steerAng:0,rndT:0,curve:0,rndPhase:"approach",rndProg:0,appDist:60};
 function veh(){return VEHICLES[S.vehKey];}
 function curveVsafe(){return Math.sqrt(veh().mu*G*ROUND_R)*3.6;}
 function applyScenario(){const sc=SCEN[S.scenKey];S.fog=sc.fog;S.rho=sc.rho;
   document.getElementById("s-fog").value=sc.fog;document.getElementById("s-rho").value=sc.rho;updateLabels();renderScenMath();}
 function reset(){const sc=SCEN[S.scenKey];S.range=START_RANGE;S.ego=new Ego(S.speed);
   S.target=new Target(sc,curveVsafe());S.decision="CRUISE";S.committed=false;S.following=false;S.ma.reset();S.stopTimer=0;
-  S.roundAngle=Math.PI/2;S.leadAngle=Math.PI/2+0.6;S.roundEntry=0;S.roundPhase="entry";S.exitProg=0;S.rndT=0;S.curve=0;
+  S.rndPhase="approach";S.rndProg=0;S.appDist=60;S.curve=0;
   S.frozen=false;S.inevitable=false;S.lastSm=null;S.holdT=0;}
 
 // ===== UPDATE (decision uses detailed D_required) =====
@@ -284,23 +284,27 @@ function update(dt){S.t+=dt;
   if(S.inevitable){v.merging=false;v.tx=v.x;if(!v.braking){v.braking=true;v.coast=T_DSP+T_FILTER+VH.tAct;}v.brakeTarget=0;S.decision="AEB";S.committed=true;}
   runScan();
 
-  // ---- ROUNDABOUT (ego perspective): the ROAD curves via a Bezier steering profile ----
+  // ---- ROUNDABOUT (top-down): approach & slow -> circle the island -> exit ----
   if(S.target.type==="roundabout"){
-    const vsafe=curveVsafe();S.inevitable=false;
-    v.braking=false;v.merging=false;v.cruise=S.speed;   // keep the driver's speed — is it safe for the corner?
-    S.range=42;                                          // island sits ahead for the visual
-    const TE=1.6,TA=3.2,TX=1.6,total=TE+TA+TX,sm=p=>p*p*(3-2*p);
-    let curve=0;
-    if(S.rndT<TE)curve=sm(S.rndT/TE);                    // Entry: ease the wheel in
-    else if(S.rndT<TE+TA)curve=1;                        // Apex: hold the turn around the island
-    else if(S.rndT<total)curve=1-sm((S.rndT-TE-TA)/TX);  // Exit: ease back to straight
-    S.curve=curve*0.9;
-    S.target.lat=-S.curve*1.6;                           // island sits on the inside of the turn
-    S.decision=(v.speed>vsafe+2)?"SLOWING":"ROUNDABOUT";
-    // physics: too fast for the corner (V > V_max = √(μgr)) → skid out
-    if(S.rndT>TE&&S.rndT<total&&v.speed>vsafe+1&&!S.frozen)freeze("COLLISION OCCURRED","#ff2532");
-    else if(S.rndT>=total&&!S.frozen)freeze("ROUNDABOUT CLEARED SAFELY","#39d98a");
-    v.update(dt,VH);S.rndT+=dt;
+    const vsafe=curveVsafe();S.inevitable=false;v.braking=false;v.merging=false;
+    if(S.rndPhase==="approach"){
+      v.cruise=Math.min(S.speed,vsafe);v.update(dt,VH);  // decelerate toward safe entry speed (never speed up)
+      S.appDist-=(v.speed/3.6)*dt;                       // roundabout draws nearer
+      S.decision="SLOWING";
+      if(S.appDist<=0){
+        if(v.speed>vsafe+4){if(!S.frozen)freeze("COLLISION OCCURRED","#ff2532");}  // entered too fast -> skid
+        else{S.rndPhase="arc";S.rndProg=0;}
+      }
+    }else if(S.rndPhase==="arc"){
+      v.cruise=vsafe;v.update(dt,VH);S.decision="ROUNDABOUT";
+      S.rndProg+=(v.speed/3.6)/(ROUND_R*3.6)*dt;         // travel along the ring
+      if(S.rndProg>=1){S.rndPhase="exit";S.rndProg=0;}
+    }else{
+      v.cruise=S.speed;v.update(dt,VH);S.decision="ROUNDABOUT";
+      S.rndProg+=dt*0.6;                                 // drive out of the exit
+      if(S.rndProg>=1&&!S.frozen)freeze("ROUNDABOUT CLEARED SAFELY","#39d98a");
+    }
+    S.range=(S.rndPhase==="approach")?Math.max(4,S.appDist):4;
     S.scroll=(S.scroll+(v.speed/3.6)*dt*9)%2000;
     return;
   }
@@ -371,60 +375,49 @@ function bez(p,t){const u=1-t;return[u*u*u*p[0][0]+3*u*u*t*p[1][0]+3*u*t*t*p[2][
   u*u*u*p[0][1]+3*u*u*t*p[1][1]+3*u*t*t*p[2][1]+t*t*t*p[3][1]];}
 function bezD(p,t){const u=1-t;return[3*u*u*(p[1][0]-p[0][0])+6*u*t*(p[2][0]-p[1][0])+3*t*t*(p[3][0]-p[2][0]),
   3*u*u*(p[1][1]-p[0][1])+6*u*t*(p[2][1]-p[1][1])+3*t*t*(p[3][1]-p[2][1])];}
-function drawRoundScene(){const g=sctx,cx=SW/2,cy=SH*0.50,R=Math.min(SW,SH)*0.30,laneW=R*0.44,islR=R-laneW*0.55,ro=R+laneW/2,ri=R-laneW/2;
+function drawRoundScene(){const g=sctx,cx=SW/2,cy=SH*0.46,R=Math.min(SW,SH)*0.28,laneW=R*0.5,islR=R-laneW*0.5,ro=R+laneW/2,ri=R-laneW/2;
+  const lerp=(a,b,t)=>a+(b-a)*t,sm=t=>t*t*(3-2*t);
   g.clearRect(0,0,SW,SH);
-  // grass field with subtle texture
   g.fillStyle="#0c1a11";g.fillRect(0,0,SW,SH);
-  g.fillStyle="#10241688";for(let i=0;i<40;i++){const gx=(i*97%SW),gy=((i*61)%SH);g.fillRect(gx,gy,3,3);}
-  // approach road (bottom) + exit road (right) as asphalt stubs
+  g.fillStyle="#10241688";for(let i=0;i<50;i++)g.fillRect((i*97)%SW,(i*61)%SH,3,3);
+  // approach road (bottom, vertical) + exit road (left, horizontal) — tangential stubs
   g.fillStyle="#171d27";
   g.fillRect(cx-laneW*0.55,cy+ri,laneW*1.1,SH-(cy+ri));               // bottom approach
-  g.fillRect(cx+ri,cy-laneW*0.55,SW-(cx+ri),laneW*1.1);              // right exit
-  // approach dashed centre line
-  g.setLineDash([14,14]);g.strokeStyle="rgba(235,238,242,.45)";g.lineWidth=2;
+  g.fillRect(0,cy-laneW*0.55,cx-ri,laneW*1.1);                       // left exit
+  g.setLineDash([14,14]);g.strokeStyle="rgba(235,238,242,.4)";g.lineWidth=2;
   g.beginPath();g.moveTo(cx,cy+ri);g.lineTo(cx,SH);g.stroke();
-  g.beginPath();g.moveTo(cx+ri,cy);g.lineTo(SW,cy);g.stroke();g.setLineDash([]);
-  // ring asphalt band (radial gradient for depth)
-  const rg=g.createRadialGradient(cx,cy,ri,cx,cy,ro);rg.addColorStop(0,"#1b222e");rg.addColorStop(1,"#12171f");
+  g.beginPath();g.moveTo(cx-ri,cy);g.lineTo(0,cy);g.stroke();g.setLineDash([]);
+  // ring road: asphalt band + edge lines
+  const rg=g.createRadialGradient(cx,cy,ri,cx,cy,ro);rg.addColorStop(0,"#1c232f");rg.addColorStop(1,"#12171f");
   g.lineWidth=laneW;g.strokeStyle=rg;g.beginPath();g.arc(cx,cy,R,0,7);g.stroke();
-  // ring edge lines only (no centre line — the car drives the clean middle of the lane)
   g.lineWidth=2.5;g.strokeStyle="rgba(235,238,242,.55)";
   g.beginPath();g.arc(cx,cy,ro-2,0,7);g.stroke();g.beginPath();g.arc(cx,cy,ri+2,0,7);g.stroke();
-  // give-way triangles at the bottom entry
-  g.fillStyle="rgba(235,238,242,.6)";for(let i=-1;i<=1;i++){const tx=cx+i*laneW*0.28;
-    g.beginPath();g.moveTo(tx-3,cy+ri+6);g.lineTo(tx+3,cy+ri+6);g.lineTo(tx,cy+ri+13);g.closePath();g.fill();}
-  // central island: curb ring + grass mound + trees
+  g.setLineDash([10,14]);g.lineWidth=1.6;g.strokeStyle="rgba(235,238,242,.3)";g.beginPath();g.arc(cx,cy,R,0,7);g.stroke();g.setLineDash([]);
+  // give-way at the bottom entry
+  g.fillStyle="rgba(235,238,242,.6)";for(let i=-1;i<=1;i++){const tx=cx+i*laneW*0.3;
+    g.beginPath();g.moveTo(tx-3,cy+ro+5);g.lineTo(tx+3,cy+ro+5);g.lineTo(tx,cy+ro+12);g.closePath();g.fill();}
+  // central island: curb + grass + trees
   g.fillStyle="#525a68";g.beginPath();g.arc(cx,cy,islR,0,7);g.fill();
-  g.fillStyle="#3a4150";g.beginPath();g.arc(cx,cy,islR-3,0,7);g.fill();
-  g.fillStyle="#1e6437";g.beginPath();g.arc(cx,cy,islR-6,0,7);g.fill();
-  g.fillStyle="#26804744";g.beginPath();g.arc(cx,cy-islR*0.18,islR*0.7,0,7);g.fill();
-  for(let i=0;i<6;i++){const a=i/6*7,bx=cx+Math.cos(a)*islR*0.48,by=cy+Math.sin(a)*islR*0.48;
-    g.fillStyle="rgba(0,0,0,.3)";g.beginPath();g.arc(bx+2,by+2,islR*0.15,0,7);g.fill();
-    g.fillStyle="#164a2a";g.beginPath();g.arc(bx,by,islR*0.15,0,7);g.fill();
+  g.fillStyle="#1e6437";g.beginPath();g.arc(cx,cy,islR-4,0,7);g.fill();
+  g.fillStyle="#26804744";g.beginPath();g.arc(cx,cy-islR*0.2,islR*0.7,0,7);g.fill();
+  for(let i=0;i<6;i++){const a=i/6*7,bx=cx+Math.cos(a)*islR*0.5,by=cy+Math.sin(a)*islR*0.5;
+    g.fillStyle="rgba(0,0,0,.3)";g.beginPath();g.arc(bx+2,by+2,islR*0.16,0,7);g.fill();
+    g.fillStyle="#164a2a";g.beginPath();g.arc(bx,by,islR*0.16,0,7);g.fill();
     g.fillStyle="#2e8b4c";g.beginPath();g.arc(bx-2,by-2,islR*0.1,0,7);g.fill();}
-  // lead vehicle on the ring
-  const lx=cx+Math.cos(S.leadAngle)*R,ly=cy+Math.sin(S.leadAngle)*R,lh=S.leadAngle+Math.PI/2;
-  drawCarRot(lx,ly,lh,0.72,{w:44,h:74,body:S.detected?"#7a3038":"#39414d",cab:"#0b1420",trim:"#39d98a",kind:"sedan"},false,false);
-  // ego position by phase — smooth Bezier curves for a natural, organic trajectory
-  const ringTan=S.roundAngle+Math.PI/2;
+  // ego position by phase: approach (drive up) -> arc (circle the island) -> exit (drive out left)
   let ex,ey,eh;
-  if(S.roundPhase==="entry"){const p=Math.min(1,S.roundEntry/1.6);       // Entry Curve: approach -> ring tangent
-    const P=[[cx,SH-30],[cx,cy+R+90],[cx+R*0.65,cy+R],[cx,cy+R]];
-    const q=bez(P,p),d=bezD(P,p);ex=q[0];ey=q[1];eh=Math.atan2(d[1],d[0]);}
-  else if(S.roundPhase==="loop"){ex=cx+Math.cos(S.roundAngle)*R;ey=cy+Math.sin(S.roundAngle)*R;eh=ringTan;}
-  else{const p=Math.min(1,S.exitProg);                                   // Exit Curve: ring -> straight road
-    const P=[[cx+R,cy],[cx+R,cy+R*0.55],[SW*0.72,cy],[SW+40,cy]];
-    const q=bez(P,p),d=bezD(P,p);ex=q[0];ey=q[1];eh=Math.atan2(d[1],d[0]);}
+  if(S.rndPhase==="approach"){const t=1-Math.max(0,Math.min(1,S.appDist/60));
+    ex=cx;ey=lerp(SH+30,cy+ro,t);eh=-Math.PI/2;}                     // driving up toward the ring
+  else if(S.rndPhase==="arc"){const th=Math.PI/2-Math.min(1,S.rndProg)*1.5*Math.PI; // 270° around
+    ex=cx+R*Math.cos(th);ey=cy+R*Math.sin(th);eh=Math.atan2(-Math.cos(th),Math.sin(th));}
+  else{const e=sm(Math.min(1,S.rndProg)),th=-Math.PI;const rr2=R+e*Math.max(SW,SH);
+    ex=cx+rr2*Math.cos(th);ey=cy+rr2*Math.sin(th);eh=th;}            // radial exit to the left
   drawRingBeam(ex,ey,eh);
-  if(S.detected){for(let i=-1;i<=1;i++){const px=lx+Math.cos(lh)*i*10,py=ly+Math.sin(lh)*i*10;
-    g.fillStyle="#39d98a";g.shadowColor="#39d98a";g.shadowBlur=8;g.beginPath();g.arc(px,py,3.4,0,7);g.fill();g.shadowBlur=0;}}
-  drawCarRot(ex,ey,eh,0.9,hostShape(),S.ego.braking&&S.ego.speed>0.1,true);
+  drawCarRot(ex,ey,eh,0.92,hostShape(),S.ego.braking&&S.ego.speed>0.1,true);
   S.roundEgo={x:ex,y:ey};
-  // "TOP VIEW" label
-  g.fillStyle="rgba(0,224,255,.9)";g.font="bold 13px Consolas,monospace";g.textAlign="center";
-  g.fillText("ROUNDABOUT — TOP VIEW",cx,26);g.textAlign="left";
-  // rotating steering-wheel indicator (shows the wheel turning as the car circles)
-  drawSteerWheel(64,SH-58,26,S.roundAngle*1.6);
+  // steering-wheel indicator turns with the car
+  const wheelAng=S.rndPhase==="arc"?S.rndProg*3:0;
+  drawSteerWheel(60,SH-56,24,wheelAng);
   drawFog();drawHUD();}
 function drawSteerWheel(x,y,r,ang){const g=sctx;g.save();g.translate(x,y);
   g.fillStyle="rgba(6,10,16,.8)";g.beginPath();g.arc(0,0,r+9,0,7);g.fill();
@@ -794,7 +787,8 @@ window.addEventListener("resize",()=>{fitScene();fitGraphs();});
 
 // ===== LOOP =====
 let last=0;function frame(ts){const dt=Math.min((ts-last)/1000||0.016,0.05);last=ts;update(dt);
-  drawScene();drawGraphs();drawDOM();
+  if(S.scenKey==="roundabout")drawRoundScene();else drawScene();
+  drawGraphs();drawDOM();
   if(S.specOpen){const w=document.getElementById("specWrap");if(w)w.innerHTML=specSheetInner();else S.specOpen=false;}
   requestAnimationFrame(frame);}
 updateScenBtn();applyScenario();reset();fitScene();fitGraphs();updateLabels();requestAnimationFrame(frame);
