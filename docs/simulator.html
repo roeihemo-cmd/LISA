@@ -380,13 +380,13 @@ function drawRoundScene(){const g=sctx,cx=SW/2,cy=SH*0.46,R=Math.min(SW,SH)*0.28
   g.clearRect(0,0,SW,SH);
   g.fillStyle="#0c1a11";g.fillRect(0,0,SW,SH);
   g.fillStyle="#10241688";for(let i=0;i<50;i++)g.fillRect((i*97)%SW,(i*61)%SH,3,3);
-  // approach road (bottom, vertical) + exit road (left, horizontal) — tangential stubs
+  // approach road (bottom) + exit road (top) — straight through the roundabout
   g.fillStyle="#171d27";
-  g.fillRect(cx-laneW*0.55,cy+ri,laneW*1.1,SH-(cy+ri));               // bottom approach
-  g.fillRect(0,cy-laneW*0.55,cx-ri,laneW*1.1);                       // left exit
+  g.fillRect(cx-laneW*0.55,cy+ri,laneW*1.1,SH-(cy+ri));               // bottom approach (entry)
+  g.fillRect(cx-laneW*0.55,0,laneW*1.1,cy-ri);                       // top exit
   g.setLineDash([14,14]);g.strokeStyle="rgba(235,238,242,.4)";g.lineWidth=2;
   g.beginPath();g.moveTo(cx,cy+ri);g.lineTo(cx,SH);g.stroke();
-  g.beginPath();g.moveTo(cx-ri,cy);g.lineTo(0,cy);g.stroke();g.setLineDash([]);
+  g.beginPath();g.moveTo(cx,cy-ri);g.lineTo(cx,0);g.stroke();g.setLineDash([]);
   // ring road: asphalt band + edge lines
   const rg=g.createRadialGradient(cx,cy,ri,cx,cy,ro);rg.addColorStop(0,"#1c232f");rg.addColorStop(1,"#12171f");
   g.lineWidth=laneW;g.strokeStyle=rg;g.beginPath();g.arc(cx,cy,R,0,7);g.stroke();
@@ -404,16 +404,15 @@ function drawRoundScene(){const g=sctx,cx=SW/2,cy=SH*0.46,R=Math.min(SW,SH)*0.28
     g.fillStyle="rgba(0,0,0,.3)";g.beginPath();g.arc(bx+2,by+2,islR*0.16,0,7);g.fill();
     g.fillStyle="#164a2a";g.beginPath();g.arc(bx,by,islR*0.16,0,7);g.fill();
     g.fillStyle="#2e8b4c";g.beginPath();g.arc(bx-2,by-2,islR*0.1,0,7);g.fill();}
-  // ego position by phase: approach (drive up) -> arc (circle the island) -> exit (drive out left)
+  // ego by phase: enter from BOTTOM road -> go 180° around the island -> exit UP the TOP road
   let ex,ey,eh;
   if(S.rndPhase==="approach"){const t=1-Math.max(0,Math.min(1,S.appDist/60));
     ex=cx;ey=lerp(SH+30,cy+ro,t);eh=-Math.PI/2;}                     // driving up toward the ring
-  else if(S.rndPhase==="arc"){const pp=Math.min(1,S.rndProg),th=Math.PI/2-pp*1.5*Math.PI; // 270° around
+  else if(S.rndPhase==="arc"){const pp=Math.min(1,S.rndProg),th=Math.PI/2-pp*Math.PI; // 180°: bottom -> right -> top
     ex=cx+R*Math.cos(th);ey=cy+R*Math.sin(th);const tan=Math.atan2(-Math.cos(th),Math.sin(th));
-    eh=pp<0.14?lerpAng(-Math.PI/2,tan,pp/0.14):tan;}                 // smooth entry: blend up-heading into the tangent
-  else{const p=sm(Math.min(1,S.rndProg));                            // smooth exit: Bezier curve back down onto the road
-    const P=[[cx-R,cy],[cx-R,cy+R*1.3],[cx,cy+ro+50],[cx,SH+60]];
-    const q=bez(P,p),d=bezD(P,p);ex=q[0];ey=q[1];eh=Math.atan2(d[1],d[0]);}
+    eh=pp<0.16?lerpAng(-Math.PI/2,tan,pp/0.16):(pp>0.84?lerpAng(tan,-Math.PI/2,(pp-0.84)/0.16):tan);} // blend into/out of the tangent
+  else{const p=sm(Math.min(1,S.rndProg));                            // smooth exit: straight UP the top road
+    ex=cx;ey=lerp(cy-ro,-70,p);eh=-Math.PI/2;}
   drawRingBeam(ex,ey,eh);
   drawCarRot(ex,ey,eh,0.92,hostShape(),S.ego.braking&&S.ego.speed>0.1,true);
   S.roundEgo={x:ex,y:ey};
@@ -437,12 +436,15 @@ function drawScene(){sctx.clearRect(0,0,SW,SH);sctx.fillStyle="#070a10";sctx.fil
     sctx.strokeStyle="rgba(220,224,230,.65)";sctx.lineWidth=1+3*(yy-hy)/(ey-hy);sctx.beginPath();sctx.moveTo(wX(ln,yy),yy);sctx.lineTo(wX(ln,y2),y2);sctx.stroke();}}
   drawTarget();drawBeam();drawHost();drawFog();drawHUD();}
 
-function drawCrosswalk(y,sc){const n=7,hw=1.6,wbar=0.11;   // zebra crossing across the road at depth y
-  for(let i=0;i<n;i++){const wx=-hw+(2*hw)*i/(n-1),x1=wX(wx-wbar,y),x2=wX(wx+wbar,y);
-    sctx.fillStyle="rgba(235,238,242,.5)";sctx.fillRect(Math.min(x1,x2),y-9*sc,Math.abs(x2-x1),18*sc);}}
+function drawCrosswalk(y,sc){const hw=1.65,h=13*sc;      // zebra crossing across the road at depth y
+  // dark asphalt band (covers the lane dashes so it doesn't look pasted on top)
+  const xl=wX(-hw,y),xr=wX(hw,y);sctx.fillStyle="#171d27";sctx.fillRect(Math.min(xl,xr),y-h,Math.abs(xr-xl),2*h);
+  const n=8,wbar=0.12;                                    // white bars, perspective-scaled via wX
+  for(let i=0;i<n;i++){const wx=-hw*0.85+(1.7*hw*0.85)*i/(n-1),x1=wX(wx-wbar,y),x2=wX(wx+wbar,y);
+    sctx.fillStyle="rgba(235,238,242,.7)";sctx.fillRect(Math.min(x1,x2),y-h,Math.abs(x2-x1),2*h);}}
 function drawTarget(){const yF=r2y(S.range),sc=0.25+0.9*(yF-HZ())/(EY()-HZ()),sx=wX(S.target.lat,yF);
   if(S.target.type==="ped"){drawCrosswalk(yF,sc);drawPed(sx,yF,sc,S.target.dir,false,true);}
-  else if(S.target.type==="child"){drawCrosswalk(yF,sc);drawBall(wX(S.target.ballLat,yF),yF+6*sc,sc);drawPed(sx,yF,sc,S.target.dir,true,true);}
+  else if(S.target.type==="child"){drawBall(wX(S.target.ballLat,yF),yF+6*sc,sc);drawPed(sx,yF,sc,S.target.dir,true,true);}
   else if(S.target.type==="obstacle")drawObstacle(sx,yF,sc);
   else if(S.target.type==="roundabout")drawRound(sx,yF,sc);
   else drawVehicle(sx,yF,sc,{w:46,h:80,body:S.detected?"#7a3038":"#39414d",cab:"#0b1420",trim:"#39d98a",kind:"sedan"},S.target.braking,false);
@@ -529,18 +531,26 @@ function drawWorker(x,y,s){ // hi-vis road worker
   sctx.strokeStyle="#c9c9c9";sctx.lineWidth=1.2*s;sctx.beginPath();sctx.moveTo(x-4*s,y-4*s);sctx.lineTo(x+4*s,y-4*s);sctx.stroke();
   sctx.fillStyle="#f2c191";sctx.beginPath();sctx.arc(x,y-13*s,4*s,0,7);sctx.fill();                                    // head
   sctx.fillStyle="#ff8c1a";sctx.beginPath();sctx.arc(x,y-14.5*s,4.2*s,Math.PI,0);sctx.fill();}                         // helmet
-function drawObstacle(x,y,sc){const s=sc*1.05; // ROAD WORKS: cones, worker, flashing stop sign
-  // cones spread across the closed lane
-  for(let i=-2;i<=2;i++)drawCone(x+i*12*s,y+8*s-Math.abs(i)*2*s,s);
-  drawWorker(x-16*s,y-2*s,s);                                                   // worker on the side
-  // flashing amber STOP sign on a pole
-  const blink=Math.sin(S.t*6)>0;
-  sctx.strokeStyle="#7a8290";sctx.lineWidth=2.5*s;sctx.beginPath();sctx.moveTo(x+18*s,y+6*s);sctx.lineTo(x+18*s,y-14*s);sctx.stroke();
-  sctx.save();sctx.translate(x+18*s,y-20*s);
-  sctx.fillStyle=blink?"#ff9500":"#5a3a00";if(blink){sctx.shadowColor="#ff9500";sctx.shadowBlur=14*s;}
-  sctx.beginPath();for(let k=0;k<8;k++){const a=k*Math.PI/4+Math.PI/8;const rr3=8*s;sctx.lineTo(Math.cos(a)*rr3,Math.sin(a)*rr3);}sctx.closePath();sctx.fill();sctx.shadowBlur=0;
-  sctx.fillStyle="#1a1200";sctx.font="bold "+(6*s)+"px system-ui";sctx.textAlign="center";sctx.fillText("STOP",0,2*s);sctx.textAlign="left";sctx.restore();
-  if(S.detected){sctx.strokeStyle="#39d98a";sctx.lineWidth=2;sctx.strokeRect(x-30*s,y-26*s,60*s,42*s);}}
+function drawMachine(x,y,s){ // yellow work truck / digger
+  sctx.fillStyle="rgba(0,0,0,.35)";sctx.beginPath();sctx.ellipse(x,y+13*s,18*s,4*s,0,0,7);sctx.fill();
+  sctx.fillStyle="#141414";sctx.beginPath();sctx.arc(x-9*s,y+10*s,4.5*s,0,7);sctx.fill();sctx.beginPath();sctx.arc(x+8*s,y+10*s,4.5*s,0,7);sctx.fill();
+  sctx.fillStyle="#e8a020";rr(x-16*s,y-4*s,30*s,15*s,3*s);sctx.fill();            // body
+  sctx.fillStyle="#c88a1a";rr(x-15*s,y-15*s,13*s,12*s,3*s);sctx.fill();           // cab
+  sctx.fillStyle="#0c1420";rr(x-13*s,y-13*s,9*s,7*s,2*s);sctx.fill();             // window
+  sctx.strokeStyle="#e8a020";sctx.lineWidth=3*s;sctx.beginPath();sctx.moveTo(x+12*s,y-2*s);sctx.lineTo(x+22*s,y+3*s);sctx.lineTo(x+27*s,y+11*s);sctx.stroke(); // arm
+  sctx.fillStyle="#c88a1a";sctx.beginPath();sctx.moveTo(x+27*s,y+11*s);sctx.lineTo(x+31*s,y+9*s);sctx.lineTo(x+30*s,y+15*s);sctx.closePath();sctx.fill();}      // bucket
+function drawObstacle(x,y,sc){const s=sc*1.15; // ROAD WORKS spread across the whole road
+  // a line of cones across the full width
+  for(let lat=-1.4;lat<=1.4;lat+=0.4)drawCone(wX(lat,y),y+7*s,s);
+  drawMachine(wX(-0.95,y),y-3*s,s);                       // digger on the left
+  drawWorker(wX(-0.35,y),y-1*s,s*0.95);drawWorker(wX(0.45,y),y-1*s,s*0.95);  // two workers
+  // flashing amber STOP sign on a pole (right)
+  const blink=Math.sin(S.t*6)>0,px=wX(1.05,y);
+  sctx.strokeStyle="#7a8290";sctx.lineWidth=2.5*s;sctx.beginPath();sctx.moveTo(px,y+6*s);sctx.lineTo(px,y-14*s);sctx.stroke();
+  sctx.save();sctx.translate(px,y-20*s);
+  sctx.fillStyle=blink?"#ff9500":"#5a3a00";if(blink){sctx.shadowColor="#ff9500";sctx.shadowBlur=15*s;}
+  sctx.beginPath();for(let k=0;k<8;k++){const a=k*Math.PI/4+Math.PI/8,rr3=9*s;sctx.lineTo(Math.cos(a)*rr3,Math.sin(a)*rr3);}sctx.closePath();sctx.fill();sctx.shadowBlur=0;
+  sctx.fillStyle="#1a1200";sctx.font="bold "+(6.5*s)+"px system-ui";sctx.textAlign="center";sctx.fillText("STOP",0,2*s);sctx.textAlign="left";sctx.restore();}
 
 function drawRound(x,y,sc){const g=sctx,s=sc; // a full roundabout lying on the road (flattened ellipse for perspective)
   const rw=Math.max(70,150*s),rh=rw*0.42;      // outer ring radii
@@ -573,7 +583,9 @@ function drawBeam(){if(S.blinded)return;const yF=r2y(S.range),fx=wX(S.ego.x,EY()
   sctx.beginPath();sctx.moveTo(fx,fy);sctx.lineTo(tx,yF);sctx.stroke();sctx.setLineDash([]);}
 
 function hostShape(){return veh().shape;}
-function egoBox(){const sp=hostShape(),y=EY(),x=wX(S.ego.x,y);return{x:x-sp.w/2,y:y-sp.h/2,w:sp.w,h:sp.h};}
+function egoBox(){const sp=hostShape();
+  if(S.scenKey==="roundabout"&&S.roundEgo)return{x:S.roundEgo.x-sp.w/2,y:S.roundEgo.y-sp.h/2,w:sp.w,h:sp.h};
+  const y=EY(),x=wX(S.ego.x,y);return{x:x-sp.w/2,y:y-sp.h/2,w:sp.w,h:sp.h};}
 function drawHost(){const y=EY(),x=wX(S.ego.x,y),steer=Math.max(-0.45,Math.min(0.45,(S.ego.tx-S.ego.x)*0.8));
   sctx.save();sctx.translate(x,y);sctx.rotate(steer);          // tilt into the turn (visible steering)
   drawVehicle(0,0,1.0,hostShape(),S.ego.braking&&S.ego.speed>0.1,true);sctx.restore();}
@@ -732,7 +744,7 @@ function specSheetInner(){const VH=veh(),v=S.ego?S.ego.speed:S.speed,ve=v/3.6,la
     ${specRow("Current speed",`${v.toFixed(0)} km/h`,"מהירות הנסיעה הנוכחית של הרכב המארח.")}
     ${specRow("Friction μ",`${VH.mu}`,"מקדם אחיזת צמיג-כביש — ערך גבוה פירושו מרחק בלימה קצר ופנייה מהירה יותר.")}
     ${specRow("Max acceleration",`${VH.aMax.toFixed(1)} m/s²`,"התאוצה המרבית שהרכב מסוגל להפיק.")}
-    ${specRow("Max deceleration",`${VH.decel.toFixed(2)} m/s²`,"תאוצת הבלימה המרבית, שווה ל-μ × g.")}
+    ${specRow("Max deceleration",`${VH.decel.toFixed(2)} m/s²`,"תאוצת הבלימה המרבית, השווה למכפלה μ·g (אחיזה כפול כובד).")}
     ${specRow("Actuator delay",`${VH.tAct.toFixed(2)} s`,`השהיית בלמים ${actHe} — הזמן מפקודת המחשב ועד לתפיסת הבלם.`)}
     ${specRow("Total latency",`${lat.toFixed(2)} s`,"השהייה כוללת של המערכת: חיישן + מסנן + מנגנון מכני.")}
     ${specRow("Blind distance",`${dReact.toFixed(1)} m`,"מרחק עיוור שהרכב גומע במהירות מלאה בזמן ההשהייה, לפני תחילת ההאטה.")}
@@ -758,13 +770,16 @@ function scenPreview(key){const sc=SCEN[key];const road=`<polygon points="72,14 
     <rect x="100" y="52" width="20" height="15" rx="4" fill="#39414d"/>`;act="→ FOLLOW";ac="#ffb020";}
   else if(key==="brake"){el=`<rect x="99" y="46" width="22" height="17" rx="4" fill="#7a3038" stroke="#39d98a"/>
     <circle cx="103" cy="62" r="2.6" fill="#ff2d3a"/><circle cx="117" cy="62" r="2.6" fill="#ff2d3a"/>`;act="🚨 AEB STOP";ac="#ff4d6d";}
-  else if(key==="ped"||key==="child"){const col=key==="child"?"#ff7043":"#8a94a4";
-    el=`<g fill="rgba(235,238,242,.5)"><rect x="72" y="50" width="9" height="20"/><rect x="90" y="50" width="9" height="20"/><rect x="108" y="50" width="9" height="20"/><rect x="126" y="50" width="9" height="20"/></g>
-    <g><circle cx="150" cy="47" r="5" fill="#e2cba6"/><rect x="145" y="51" width="10" height="14" rx="3" fill="${col}"/>
-    <rect x="141" y="52" width="3" height="10" rx="1" fill="${col}"/><rect x="156" y="52" width="3" height="10" rx="1" fill="${col}"/>
-    <rect x="146" y="64" width="3.4" height="9" fill="#464e5c"/><rect x="151" y="64" width="3.4" height="9" fill="#464e5c"/></g>
-    <path d="M143 45 L127 45" stroke="#ffb020" stroke-width="2"/><path d="M131 42 L127 45 L131 48" stroke="#ffb020" stroke-width="2" fill="none"/>
-    ${key==="child"?'<circle cx="122" cy="60" r="4" fill="#ff6a2a"/>':''}`;act="🚨 AEB STOP";ac="#ff4d6d";}
+  else if(key==="ped"){el=`<g fill="rgba(235,238,242,.55)"><rect x="66" y="54" width="10" height="22"/><rect x="86" y="54" width="10" height="22"/><rect x="106" y="54" width="10" height="22"/><rect x="126" y="54" width="10" height="22"/><rect x="146" y="54" width="10" height="22"/></g>
+    <g><circle cx="110" cy="42" r="6" fill="#e2cba6"/><rect x="103" y="47" width="14" height="18" rx="4" fill="#8a94a4"/>
+    <rect x="98" y="49" width="4" height="13" rx="2" fill="#8a94a4"/><rect x="118" y="49" width="4" height="13" rx="2" fill="#8a94a4"/>
+    <rect x="104" y="64" width="4.5" height="12" fill="#464e5c"/><rect x="111.5" y="64" width="4.5" height="12" fill="#464e5c"/></g>
+    <path d="M120 40 L136 40" stroke="#ffb020" stroke-width="2.5"/><path d="M131 36 L136 40 L131 44" stroke="#ffb020" stroke-width="2.5" fill="none"/>`;act="🚨 AEB STOP";ac="#ff4d6d";}
+  else if(key==="child"){el=`<g><circle cx="108" cy="46" r="5" fill="#f2c191"/><rect x="102" y="50" width="12" height="14" rx="3" fill="#ff7043"/>
+    <rect x="98" y="51" width="3.5" height="10" rx="1" fill="#ff7043"/><rect x="114" y="51" width="3.5" height="10" rx="1" fill="#ff7043"/>
+    <rect x="103" y="63" width="3.6" height="10" fill="#2f5aa8"/><rect x="109" y="63" width="3.6" height="10" fill="#2f5aa8"/>
+    <circle cx="128" cy="62" r="6" fill="#ff6a2a" stroke="#7a2d10"/>
+    <path d="M118 44 L134 44" stroke="#ffb020" stroke-width="2.5"/><path d="M129 40 L134 44 L129 48" stroke="#ffb020" stroke-width="2.5" fill="none"/></g>`;act="🚨 AEB STOP";ac="#ff4d6d";}
   else if(key==="fog"){el=`<rect x="99" y="50" width="22" height="16" rx="4" fill="#39414d" stroke="#8aa0b5"/>
     <rect x="14" y="14" width="192" height="102" fill="#c8ced6" opacity=".38"/>`;act="⚠️ SENSOR BLIND";ac="#ffb020";}
   else if(key==="obstacle"){el=`<g>
