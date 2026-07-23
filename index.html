@@ -128,7 +128,7 @@
 
 <div class="app">
   <div class="col panel">
-    <div class="brand">LiDAR · ADAS<small>Perception &amp; Control Bench · build v9</small></div>
+    <div class="brand">LiDAR · ADAS<small>Perception &amp; Control Bench · build v10</small></div>
     <div class="sec">Scenario Select</div>
     <button class="scenbtn" id="scenBtn"></button>
 
@@ -678,8 +678,12 @@ const $=id=>document.getElementById(id);
 function drawDOM(){$("m-true").textContent=S.range.toFixed(1)+" m";$("m-sm").textContent=S.sm!=null?S.sm.toFixed(1)+" m":"-- LOST";$("m-sm").style.color=S.detected?"var(--green)":"var(--red)";
   $("m-req").textContent=S.dReq.toFixed(1)+" m";$("m-ttc").textContent=isFinite(S.ttc)?S.ttc.toFixed(1)+" s":"—";
   $("m-snr").textContent=(S.snr>0?(20*Math.log10(S.snr)).toFixed(0):"-∞")+" dB";$("m-prec").textContent=S.prec>0?S.prec.toExponential(1):"0";
-  $("tgt-label").textContent=S.target.baseLabel;$("closing").textContent="closing Δv: "+(S.speedDiff>=0?"+":"")+S.speedDiff.toFixed(0)+" km/h";
-  $("closing").style.color=S.speedDiff>DV_THR?"var(--red)":"var(--green)";
+  $("tgt-label").textContent=S.target.baseLabel;
+  if(S.detected&&S.sm!=null){ // sensor has a lock -> relative closing speed is known
+    $("closing").textContent="closing Δv: "+(S.speedDiff>=0?"+":"")+S.speedDiff.toFixed(0)+" km/h";
+    $("closing").style.color=S.speedDiff>DV_THR?"var(--red)":"var(--green)";
+  }else{ // no lock (fog-blinded / out of range) -> the car cannot estimate the lead's speed
+    $("closing").textContent="closing Δv: — (no sensor lock)";$("closing").style.color="var(--amber)";}
   if(S.target.type==="roundabout"){ // no lead vehicle: the beam ranges the CENTRAL ISLAND beside the circulating lane
     $("tgt-label").textContent="CENTRAL ISLAND";
     $("closing").textContent="no lead vehicle · ranging island";$("closing").style.color="var(--amber)";}
