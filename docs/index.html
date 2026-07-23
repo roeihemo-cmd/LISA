@@ -129,7 +129,7 @@
 
 <div class="app">
   <div class="col panel">
-    <div class="brand">LiDAR · ADAS<small>Perception &amp; Control Bench · build v12</small></div>
+    <div class="brand">LiDAR · ADAS<small>Perception &amp; Control Bench · build v13</small></div>
     <div class="sec">Scenario Select</div>
     <button class="scenbtn" id="scenBtn"></button>
 
@@ -206,9 +206,9 @@ const SCEN={
   child:{type:"child",beh:"cross",fog:0.02,rho:0.12,v0:0,lat0:-1.8,label:"CHILD CHASING BALL",
     name:"Child + Ball",desc:"child crosses road",icon:"child",eqs:["lidar","ttc","braking"],
     challenge:"A small child (low RCS) crosses the road in a straight line, a ball rolling ahead. Very short TTC — the car must brake hard or steer around."},
-  fog:{type:"car",beh:"slow",fog:0.22,rho:0.6,v0:40,lat0:0,label:"LEAD IN HEAVY FOG",
-    name:"Heavy Fog",desc:"low visibility",icon:"fog",eqs:["beer","lidar","braking"],
-    challenge:"Heavy fog attenuates the laser beam (Beer-Lambert) — the target is only detected at very short range."},
+  fog:{type:"car",beh:"slow",fog:0.22,rho:0.6,v0:0,lat0:0,label:"STALLED CAR IN FOG",
+    name:"Heavy Fog",desc:"stalled car, low visibility",icon:"fog",eqs:["beer","lidar","braking"],
+    challenge:"A stalled car sits in the lane, hidden by heavy fog. Beer-Lambert attenuation means the LiDAR only sees it at very short range — you must be slow enough that your stopping distance fits inside that range, or you hit it."},
   static:{type:"obstacle",beh:"static",fog:0.02,rho:0.4,v0:0,lat0:0,label:"ROAD WORKS AHEAD",
     name:"Road Works",desc:"roadworks — stop",icon:"obstacle",eqs:["matched","braking"],
     challenge:"Road works close the lane — cones, workers and a flashing STOP sign. The car must brake to a stop before them."},
