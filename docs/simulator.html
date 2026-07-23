@@ -43,6 +43,7 @@
   .block{border-top:1px solid var(--edge);padding-top:11px;display:flex;flex-direction:column;gap:6px}
   .tgt{font-size:.88rem;color:var(--amber);font-weight:600}
   .closing{font-family:var(--mono);font-size:.78rem}
+  .tspeed{font-family:var(--mono);font-size:.78rem;color:var(--dim);margin-top:2px}
   .decbox{border:2px solid var(--cyan);border-radius:10px;padding:10px;text-align:center;font-weight:700;
     letter-spacing:.04em;font-size:1.0rem;background:#0b1017}
   .hint{font-family:var(--mono);font-size:.64rem;color:var(--faint);line-height:1.7}
@@ -121,7 +122,7 @@
 
 <div class="app">
   <div class="col panel">
-    <div class="brand">LiDAR · ADAS<small>Perception &amp; Control Bench · build v10</small></div>
+    <div class="brand">LiDAR · ADAS<small>Perception &amp; Control Bench · build v11</small></div>
     <div class="sec">Scenario Select</div>
     <button class="scenbtn" id="scenBtn"></button>
 
@@ -142,6 +143,7 @@
       <input type="range" id="s-noise" min="0" max="0.5" step="0.01" value="0.15"></div>
 
     <div class="block"><div class="sec">Target</div><div class="tgt" id="tgt-label">—</div>
+      <div class="tspeed" id="tgt-speed">Target Speed: —</div>
       <div class="closing" id="closing">closing Δv: +0 km/h</div></div>
     <div class="block"><div class="sec">Autonomous Decision</div><div class="decbox" id="dec">CRUISE</div></div>
     <div class="hint"><kbd>SPACE</kbd> restart · <kbd>Click</kbd> car spec · <kbd>2×Click</kbd> speed ×2</div>
@@ -267,7 +269,7 @@ function reset(){const sc=SCEN[S.scenKey];S.range=START_RANGE;S.ego=new Ego(S.sp
 // ===== UPDATE (decision uses detailed D_required) =====
 function freeze(msg,col){S.frozen=true;S.freezeTimer=0;S.freezeMsg=msg;S.freezeCol=col;}
 function update(dt){S.t+=dt;
-  if(S.frozen){S.freezeTimer+=dt;if(S.freezeTimer>=3.0){S.frozen=false;reset();}return;}  // hold the outcome 3 s
+  if(S.frozen){S.freezeTimer+=dt;if(S.freezeTimer>=4.0){S.frozen=false;reset();}return;}  // hold the outcome 4 s (time to read analytics)
   const v=S.ego,VH=veh();
   v.cruise=S.following?Math.min(S.speed,S.target.speed):S.speed;
   const det=LiDAR.detect(S.range,1.0,S.rho,S.fog,S.noise);
@@ -628,7 +630,7 @@ function drawHUD(){sctx.font="bold 17px Consolas,monospace";sctx.textAlign="left
     sctx.fillStyle=S.freezeCol;sctx.shadowColor=S.freezeCol;sctx.shadowBlur=20;
     sctx.fillText(S.freezeMsg,SW/2,SH/2);sctx.shadowBlur=0;
     sctx.fillStyle="rgba(200,208,220,.8)";sctx.font="12px Consolas,monospace";
-    sctx.fillText("resetting in "+Math.max(0,3-S.freezeTimer).toFixed(1)+" s",SW/2,SH/2+26);
+    sctx.fillText("resetting in "+Math.max(0,4-S.freezeTimer).toFixed(1)+" s",SW/2,SH/2+26);
     sctx.textAlign="left";return;}
   // --- highest priority: unavoidable collision (physical limit exceeded) ---
   if(S.inevitable){const a=0.45+0.55*Math.abs(Math.sin(S.t*7));const av=SW-40;sctx.textAlign="center";
@@ -672,14 +674,19 @@ function drawDOM(){$("m-true").textContent=S.range.toFixed(1)+" m";$("m-sm").tex
   $("m-req").textContent=S.dReq.toFixed(1)+" m";$("m-ttc").textContent=isFinite(S.ttc)?S.ttc.toFixed(1)+" s":"—";
   $("m-snr").textContent=(S.snr>0?(20*Math.log10(S.snr)).toFixed(0):"-∞")+" dB";$("m-prec").textContent=S.prec>0?S.prec.toExponential(1):"0";
   $("tgt-label").textContent=S.target.baseLabel;
-  if(S.detected&&S.sm!=null){ // sensor has a lock -> relative closing speed is known
-    $("closing").textContent="closing Δv: "+(S.speedDiff>=0?"+":"")+S.speedDiff.toFixed(0)+" km/h";
-    $("closing").style.color=S.speedDiff>DV_THR?"var(--red)":"var(--green)";
-  }else{ // no lock (fog-blinded / out of range) -> the car cannot estimate the lead's speed
-    $("closing").textContent="closing Δv: — (no sensor lock)";$("closing").style.color="var(--amber)";}
+  const tsp=$("tgt-speed"),cl=$("closing");
   if(S.target.type==="roundabout"){ // no lead vehicle: the beam ranges the CENTRAL ISLAND beside the circulating lane
     $("tgt-label").textContent="CENTRAL ISLAND";
-    $("closing").textContent="no lead vehicle · ranging island";$("closing").style.color="var(--amber)";}
+    tsp.textContent="Target Speed: n/a · fixed island";
+    cl.textContent="no lead vehicle · ranging island";cl.style.color="var(--amber)";
+  }else if(S.detected&&S.sm!=null){ // sensor lock -> target speed + real-time closing Δv are known
+    const ts=Math.max(0,S.target.speed);
+    tsp.textContent="Target Speed: "+(ts<1?"0 km/h · Stationary":ts.toFixed(0)+" km/h · Moving");tsp.style.color="var(--dim)";
+    cl.textContent="closing Δv: "+(S.speedDiff>=0?"+":"")+S.speedDiff.toFixed(0)+" km/h (V "+S.ego.speed.toFixed(0)+" − T "+ts.toFixed(0)+")";
+    cl.style.color=S.speedDiff>DV_THR?"var(--red)":"var(--green)";
+  }else{ // no sensor lock -> the car cannot estimate the target's speed
+    tsp.textContent="Target Speed: — (no sensor lock)";tsp.style.color="var(--amber)";
+    cl.textContent=S.blinded?"closing Δv: Out of Range":"closing Δv: Searching…";cl.style.color="var(--amber)";}
   const dec=$("dec");
   if(S.frozen){const isCol=S.freezeCol==="#ff2532";const m=S.freezeMsg;
     dec.textContent=isCol?"COLLISION OCCURRED":(m.indexOf("AVOIDED")>=0?"COLLISION AVOIDED":(m.indexOf("ROUNDABOUT")>=0?"ROUNDABOUT CLEAR":"SAFELY STOPPED"));
