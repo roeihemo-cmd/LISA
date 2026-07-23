@@ -122,7 +122,7 @@
 
 <div class="app">
   <div class="col panel">
-    <div class="brand">LiDAR · ADAS<small>Perception &amp; Control Bench · build v11</small></div>
+    <div class="brand">LiDAR · ADAS<small>Perception &amp; Control Bench · build v12</small></div>
     <div class="sec">Scenario Select</div>
     <button class="scenbtn" id="scenBtn"></button>
 
@@ -142,7 +142,7 @@
     <div class="ctl"><div class="lab"><span>Noise σ</span><b id="lv-noise">0.15</b></div>
       <input type="range" id="s-noise" min="0" max="0.5" step="0.01" value="0.15"></div>
 
-    <div class="block"><div class="sec">Target</div><div class="tgt" id="tgt-label">—</div>
+    <div class="block"><div class="sec">Target <button class="infobtn" onclick="explainTarget()">i</button></div><div class="tgt" id="tgt-label">—</div>
       <div class="tspeed" id="tgt-speed">Target Speed: —</div>
       <div class="closing" id="closing">closing Δv: +0 km/h</div></div>
     <div class="block"><div class="sec">Autonomous Decision</div><div class="decbox" id="dec">CRUISE</div></div>
@@ -423,13 +423,14 @@ function drawRoundScene(){const g=sctx,cx=SW/2,cy=SH*0.46,R=Math.min(SW,SH)*0.28
     g.fillStyle="#2e8b4c";g.beginPath();g.arc(bx-2,by-2,islR*0.1,0,7);g.fill();}
   // ego by phase: enter from BOTTOM road -> go 180° around the island -> exit UP the TOP road
   let ex,ey,eh;
-  if(S.rndPhase==="approach"){const t=1-Math.max(0,Math.min(1,S.appDist/60));
-    ex=cx;ey=lerp(SH+30,cy+ro,t);eh=-Math.PI/2;}                     // driving up toward the ring
+  if(S.rndPhase==="approach"){const t=sm(1-Math.max(0,Math.min(1,S.appDist/60)));
+    ex=cx;ey=lerp(SH+30,cy+R,t);eh=-Math.PI/2;}                      // ease up onto the ring CENTRELINE (radius R, matches the arc start — no pop)
   else if(S.rndPhase==="arc"){const pp=Math.min(1,S.rndProg),th=Math.PI/2-pp*Math.PI; // 180°: bottom -> right -> top
     ex=cx+R*Math.cos(th);ey=cy+R*Math.sin(th);const tan=Math.atan2(-Math.cos(th),Math.sin(th));
-    eh=pp<0.16?lerpAng(-Math.PI/2,tan,pp/0.16):(pp>0.84?lerpAng(tan,-Math.PI/2,(pp-0.84)/0.16):tan);} // blend into/out of the tangent
-  else{const p=sm(Math.min(1,S.rndProg));                            // smooth exit: straight UP the top road
-    ex=cx;ey=lerp(cy-ro,-70,p);eh=-Math.PI/2;}
+    const BL=0.24;                                                   // wider turn-in / turn-out blend = gentler corners
+    eh=pp<BL?lerpAng(-Math.PI/2,tan,sm(pp/BL)):(pp>1-BL?lerpAng(tan,-Math.PI/2,sm((pp-(1-BL))/BL)):tan);}
+  else{const p=sm(Math.min(1,S.rndProg));                            // smooth exit: leave the ring CENTRELINE (radius R) straight UP the top road
+    ex=cx;ey=lerp(cy-R,-70,p);eh=-Math.PI/2;}
   drawRingBeam(ex,ey,eh);
   drawCarRot(ex,ey,eh,0.92,hostShape(),S.ego.braking&&S.ego.speed>0.1,true);
   S.roundEgo={x:ex,y:ey};
@@ -677,12 +678,12 @@ function drawDOM(){$("m-true").textContent=S.range.toFixed(1)+" m";$("m-sm").tex
   const tsp=$("tgt-speed"),cl=$("closing");
   if(S.target.type==="roundabout"){ // no lead vehicle: the beam ranges the CENTRAL ISLAND beside the circulating lane
     $("tgt-label").textContent="CENTRAL ISLAND";
-    tsp.textContent="Target Speed: n/a · fixed island";
-    cl.textContent="no lead vehicle · ranging island";cl.style.color="var(--amber)";
+    tsp.textContent="Target Speed: 0 km/h · Stationary (roundabout island)";tsp.style.color="var(--dim)";
+    cl.textContent="No lead vehicle — LiDAR ranges the island";cl.style.color="var(--amber)";
   }else if(S.detected&&S.sm!=null){ // sensor lock -> target speed + real-time closing Δv are known
     const ts=Math.max(0,S.target.speed);
     tsp.textContent="Target Speed: "+(ts<1?"0 km/h · Stationary":ts.toFixed(0)+" km/h · Moving");tsp.style.color="var(--dim)";
-    cl.textContent="closing Δv: "+(S.speedDiff>=0?"+":"")+S.speedDiff.toFixed(0)+" km/h (V "+S.ego.speed.toFixed(0)+" − T "+ts.toFixed(0)+")";
+    cl.textContent="Closing Δv: "+(S.speedDiff>=0?"+":"")+S.speedDiff.toFixed(0)+" km/h  ·  Vehicle "+S.ego.speed.toFixed(0)+" − Target "+ts.toFixed(0);
     cl.style.color=S.speedDiff>DV_THR?"var(--red)":"var(--green)";
   }else{ // no sensor lock -> the car cannot estimate the target's speed
     tsp.textContent="Target Speed: — (no sensor lock)";tsp.style.color="var(--amber)";
@@ -702,7 +703,7 @@ function drawDOM(){$("m-true").textContent=S.range.toFixed(1)+" m";$("m-sm").tex
   const wb=$("warnbox");
   if(S.inevitable){wb.style.display="flex";
     const row=(lbl,en,val,col)=>`<div class="wrow"><span class="wlbl rtl">${bidi(lbl)}</span><span class="wval" style="color:var(${col})"><bdi>${val} m</bdi><span class="wen">${en}</span></span></div>`;
-    wb.innerHTML=`<div class="t">⛔ UNAVOIDABLE COLLISION</div>`
+    wb.innerHTML=`<div class="t rtl">${bidi("⛔ התנגשות בלתי נמנעת")}</div>`
       +`<div class="d rtl">${bidi("מרחק הבלימה הפיזיקלי הנדרש גדול מהמרחק הקיים — לכן, במידה וההגה אינו מסיט את הרכב, התנגשות היא בלתי נמנעת גם תחת בלימת חירום מרבית:")}</div>`
       +`<div class="wtab">`
       +row("מרחק בלימה נדרש","STOP REQ",S.dReq.toFixed(1),"--amber")
@@ -816,6 +817,15 @@ function openEq(key){S.specOpen=false;const e=EQ[key];let dl="";
     deriv=`<div class="derivbox"><div class="dt">פיתוח מתמטי · Derivation</div>${e.derivOf?`<div class="dof rtl">${bidi(e.derivOf)}</div>`:""}${steps}</div>`
       +(e.derivNote?`<div class="note rtl">${bidi(e.derivNote)}</div>`:"");}
   openModal(`<h3>${e.title}</h3><div class="sub rtl">${bidi(e.sub)}</div><div class="eq">${e.full}</div>${deriv}<dl>${dl}</dl><div class="note rtl">${bidi(e.note)}</div>`);}
+window.explainTarget=()=>{S.specOpen=false;
+  const dl=[
+    ["Target Speed","מהירות המטרה שמלפנים כפי שה-LiDAR מודד אותה. <b>Stationary</b> = עצם נייח (הולך רגל, ילד, עבודות בכביש, אי הכיכר). <b>Moving</b> = רכב נע, והמספר הוא מהירותו בקמ\"ש."],
+    ["Closing Δv","מהירות ההתקרבות — כמה מהר הרכב שלך סוגר את הפער אל המטרה. הנוסחה: <b>Δv = Vehicle − Target</b> (מהירות הרכב פחות מהירות המטרה). ערך חיובי = מתקרבים; שלילי = מתרחקים."],
+    ["Vehicle / Target","<b>Vehicle</b> = מהירות הרכב שלך (הערך שב-SPEED למעלה). <b>Target</b> = מהירות המטרה שמלפנים. הפירוק מוצג כדי שיהיה שקוף איך חושב ה-Δv."],
+    ["Searching…","ה-LiDAR עדיין לא נעל על המטרה (למשל בטווח רחוק). אין נתוני מהירות עד לזיהוי."],
+    ["Out of Range","החיישן מסונוור (ערפל כבד) — לא ניתן למדוד טווח ולכן גם לא מהירות. נדרש RADAR / Sensor Fusion."]
+  ].map(([t,d])=>`<div class="termrow"><div class="sym">${t}</div><div class="exp rtl">${bidi(d)}</div></div>`).join("");
+  openModal(`<h3>Target &amp; Closing Δv</h3><div class="sub rtl">${bidi("פאנל המטרה מציג את מהירות העצם שמלפנים ואת מהירות ההתקרבות אליו — הבסיס להחלטת הבלימה של המערכת.")}</div><dl>${dl}</dl><div class="note rtl">${bidi("ככל שה-Closing Δv גבוה יותר, המערכת צריכה להגיב מוקדם יותר — מרחק הבלימה גדל עם ריבוע המהירות היחסית.")}</div>`);};
 function specRow(label,value,explain){return `<tr><td>${label}<div class="ex rtl">${bidi(explain)}</div></td><td>${value}</td></tr>`;}
 function specSheetInner(){const VH=veh(),v=S.ego?S.ego.speed:S.speed,ve=v/3.6,lat=T_DSP+T_FILTER+VH.tAct,dReact=ve*lat,dMech=ve*ve/(2*VH.decel),dReq=dReact+dMech+BUFFER;
   const actHe=VH.act==="pneumatic"?"פנאומטית":"הידראולית";
