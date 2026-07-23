@@ -122,7 +122,7 @@
 
 <div class="app">
   <div class="col panel">
-    <div class="brand">LiDAR · ADAS<small>Perception &amp; Control Bench · build v15</small></div>
+    <div class="brand">LiDAR · ADAS<small>Perception &amp; Control Bench · build v16</small></div>
     <div class="sec">Scenario Select</div>
     <button class="scenbtn" id="scenBtn"></button>
 
@@ -776,8 +776,10 @@ const EQ={
   curve:{short:"V_max = √(μ·g·r)",title:"Safe Cornering Speed",sub:"המהירות המרבית להיכנס לכיכר בלי להחליק.",
     full:"V_max = √(μ · g · r)",terms:()=>{const VH=veh();return[["μ — Friction",`אחיזת הצמיג בכביש ברכב הנבחר, כאן ${VH.mu}.`],
       ["g — Gravity","תאוצת הכובד, 9.81 מטר לשנייה בריבוע."],["r — Radius",`רדיוס הכיכר, כאן ${ROUND_R} מטר.`],
-      ["V_max",`המהירות שבה כוח הצנטריפטה שווה לחיכוך המרבי, כאן ${(curveVsafe()).toFixed(0)} קמ״ש.`],
-      ["Substitution",`הצבת הערכים: √(${VH.mu} × 9.81 × ${ROUND_R}) ≈ ${(curveVsafe()/3.6).toFixed(1)} m/s ≈ ${curveVsafe().toFixed(0)} km/h — עם רדיוס כיכר r = ${ROUND_R} מ׳.`]];},
+      ["V_max",`המהירות שבה כוח הצנטריפטה שווה לחיכוך המרבי, כאן ${(curveVsafe()).toFixed(0)} קמ״ש.`]];},
+    substep:()=>{const VH=veh(),ms=Math.sqrt(VH.mu*G*ROUND_R);return[
+      `V_max = √(${VH.mu} · 9.81 · ${ROUND_R}) = ${ms.toFixed(1)} m/s × 3.6 = ${(ms*3.6).toFixed(0)} km/h`,
+      `הצבה מספרית עם רדיוס כיכר r = ${ROUND_R} מטר. השורש נותן את המהירות במטר לשנייה, וכופלים ב-3.6 כדי לקבל קמ״ש.`];},
     note:"רכב עם אחיזה גבוהה יכול להיכנס מהר יותר, ומשאית עם אחיזה נמוכה חייבת להאט הרבה יותר.",
     derivOf:"מוצאים את המהירות המרבית V_max שבה אפשר לעבור פנייה ברדיוס r מבלי להחליק.",
     deriv:[["F_c = m·v² / r","הכוח הצנטריפטלי הנדרש לפנייה."],
@@ -814,7 +816,8 @@ overlay.addEventListener("click",e=>{if(e.target===overlay)closeModal();});
 function openEq(key){S.specOpen=false;const e=EQ[key];let dl="";
   for(const [t,d] of e.terms())dl+=`<div class="termrow"><div class="sym">${t}</div><div class="exp">${bidi(d)}</div></div>`;
   let deriv="";
-  if(e.deriv){const steps=e.deriv.map(([f,n])=>`<div class="dstep"><span class="f">${f}</span><span class="n">${bidi(n)}</span></div>`).join("");
+  if(e.deriv){const rows=e.deriv.slice();if(e.substep)rows.push(e.substep());
+    const steps=rows.map(([f,n])=>`<div class="dstep"><span class="f">${f}</span><span class="n">${bidi(n)}</span></div>`).join("");
     deriv=`<div class="derivbox"><div class="dt">פיתוח מתמטי · Derivation</div>${e.derivOf?`<div class="dof rtl">${bidi(e.derivOf)}</div>`:""}${steps}</div>`
       +(e.derivNote?`<div class="note rtl">${bidi(e.derivNote)}</div>`:"");}
   openModal(`<h3>${e.title}</h3><div class="sub rtl">${bidi(e.sub)}</div><div class="eq">${e.full}</div>${deriv}<dl>${dl}</dl><div class="note rtl">${bidi(e.note)}</div>`);}
