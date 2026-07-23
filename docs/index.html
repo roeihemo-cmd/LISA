@@ -129,7 +129,7 @@
 
 <div class="app">
   <div class="col panel">
-    <div class="brand">LiDAR · ADAS<small>Perception &amp; Control Bench · build v14</small></div>
+    <div class="brand">LiDAR · ADAS<small>Perception &amp; Control Bench · build v15</small></div>
     <div class="sec">Scenario Select</div>
     <button class="scenbtn" id="scenBtn"></button>
 
@@ -782,8 +782,9 @@ const EQ={
     derivNote:"אם מהירות הסגירה שלילית (מתרחקים) אין התנגשות וה-TTC אינסופי."},
   curve:{short:"V_max = √(μ·g·r)",title:"Safe Cornering Speed",sub:"המהירות המרבית להיכנס לכיכר בלי להחליק.",
     full:"V_max = √(μ · g · r)",terms:()=>{const VH=veh();return[["μ — Friction",`אחיזת הצמיג בכביש ברכב הנבחר, כאן ${VH.mu}.`],
-      ["g — Gravity","תאוצת הכובד, 9.81 מטר לשנייה בריבוע."],["r — Radius","רדיוס הכיכר, כאן 25 מטר."],
-      ["V_max",`המהירות שבה כוח הצנטריפטה שווה לחיכוך המרבי, כאן ${(curveVsafe()).toFixed(0)} קמ״ש.`]];},
+      ["g — Gravity","תאוצת הכובד, 9.81 מטר לשנייה בריבוע."],["r — Radius",`רדיוס הכיכר, כאן ${ROUND_R} מטר.`],
+      ["V_max",`המהירות שבה כוח הצנטריפטה שווה לחיכוך המרבי, כאן ${(curveVsafe()).toFixed(0)} קמ״ש.`],
+      ["Substitution",`הצבת הערכים: √(${VH.mu} × 9.81 × ${ROUND_R}) ≈ ${(curveVsafe()/3.6).toFixed(1)} m/s ≈ ${curveVsafe().toFixed(0)} km/h — עם רדיוס כיכר r = ${ROUND_R} מ׳.`]];},
     note:"רכב עם אחיזה גבוהה יכול להיכנס מהר יותר, ומשאית עם אחיזה נמוכה חייבת להאט הרבה יותר.",
     derivOf:"מוצאים את המהירות המרבית V_max שבה אפשר לעבור פנייה ברדיוס r מבלי להחליק.",
     deriv:[["F_c = m·v² / r","הכוח הצנטריפטלי הנדרש לפנייה."],
