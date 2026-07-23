@@ -128,7 +128,7 @@
 
 <div class="app">
   <div class="col panel">
-    <div class="brand">LiDAR · ADAS<small>Perception &amp; Control Bench · build v8</small></div>
+    <div class="brand">LiDAR · ADAS<small>Perception &amp; Control Bench · build v9</small></div>
     <div class="sec">Scenario Select</div>
     <button class="scenbtn" id="scenBtn"></button>
 
@@ -621,7 +621,8 @@ let fogP=null;function drawFog(){const f=Math.max(0,Math.min(1,S.fog/0.3));if(f<
 
 function drawHUD(){sctx.font="bold 17px Consolas,monospace";sctx.textAlign="left";
   sctx.fillStyle="#00e0ff";sctx.fillText("SPEED "+S.ego.speed.toFixed(0).padStart(3)+" km/h",16,26);
-  sctx.fillStyle=S.detected?"#39d98a":"#ff4d6d";sctx.fillText(S.detected&&S.sm!=null?"RANGE "+S.sm.toFixed(1)+" m":"RANGE  -- LOST",16,48);
+  {const rlbl=S.target.type==="roundabout"?"ISLAND":"RANGE";
+   sctx.fillStyle=S.detected?"#39d98a":"#ff4d6d";sctx.fillText(S.detected&&S.sm!=null?rlbl+" "+S.sm.toFixed(1)+" m":rlbl+"  -- LOST",16,48);}
   if(S.ego.braking&&S.ego.speed>0.1&&Math.sin(S.t*10)>-0.2){sctx.fillStyle="#ff4d6d";sctx.beginPath();sctx.arc(24,74,7,0,7);sctx.fill();sctx.fillText("BRAKING",38,80);}
   // Forward Collision Warning: detected + short TTC, before AEB/merge engages
   else if(S.detected&&isFinite(S.ttc)&&S.ttc<2.5&&S.decision!=="AEB"&&!S.ego.merging&&Math.sin(S.t*12)>-0.3){
@@ -679,6 +680,9 @@ function drawDOM(){$("m-true").textContent=S.range.toFixed(1)+" m";$("m-sm").tex
   $("m-snr").textContent=(S.snr>0?(20*Math.log10(S.snr)).toFixed(0):"-∞")+" dB";$("m-prec").textContent=S.prec>0?S.prec.toExponential(1):"0";
   $("tgt-label").textContent=S.target.baseLabel;$("closing").textContent="closing Δv: "+(S.speedDiff>=0?"+":"")+S.speedDiff.toFixed(0)+" km/h";
   $("closing").style.color=S.speedDiff>DV_THR?"var(--red)":"var(--green)";
+  if(S.target.type==="roundabout"){ // no lead vehicle: the beam ranges the CENTRAL ISLAND beside the circulating lane
+    $("tgt-label").textContent="CENTRAL ISLAND";
+    $("closing").textContent="no lead vehicle · ranging island";$("closing").style.color="var(--amber)";}
   const dec=$("dec");
   if(S.frozen){const isCol=S.freezeCol==="#ff2532";const m=S.freezeMsg;
     dec.textContent=isCol?"COLLISION OCCURRED":(m.indexOf("AVOIDED")>=0?"COLLISION AVOIDED":(m.indexOf("ROUNDABOUT")>=0?"ROUNDABOUT CLEAR":"SAFELY STOPPED"));
