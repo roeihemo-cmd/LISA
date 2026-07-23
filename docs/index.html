@@ -97,6 +97,7 @@
   .modal .sub{color:var(--dim);font-size:.82rem;margin-bottom:16px}
   .modal .eq{font-family:var(--mono);background:#0a1119;border:1px solid var(--edge);border-left:3px solid var(--cyan);
     border-radius:8px;padding:12px 14px;margin:12px 0;font-size:1rem;overflow-x:auto}
+  .rad{border-top:1.4px solid currentColor;padding:1px .18em 0;margin-left:-.04em}   /* radical vinculum over the radicand */
   .modal dl{margin:0;display:flex;flex-direction:column}
   .modal .termrow{padding:10px 2px;border-bottom:1px solid var(--edge-soft,#1a2231)}
   .modal .termrow:last-child{border-bottom:none}
@@ -129,7 +130,7 @@
 
 <div class="app">
   <div class="col panel">
-    <div class="brand">LiDAR · ADAS<small>Perception &amp; Control Bench · build v16</small></div>
+    <div class="brand">LiDAR · ADAS<small>Perception &amp; Control Bench · build v17</small></div>
     <div class="sec">Scenario Select</div>
     <button class="scenbtn" id="scenBtn"></button>
 
@@ -428,15 +429,22 @@ function drawRoundScene(){const g=sctx,cx=SW/2,cy=SH*0.46,R=Math.min(SW,SH)*0.28
     g.fillStyle="rgba(0,0,0,.3)";g.beginPath();g.arc(bx+2,by+2,islR*0.16,0,7);g.fill();
     g.fillStyle="#164a2a";g.beginPath();g.arc(bx,by,islR*0.16,0,7);g.fill();
     g.fillStyle="#2e8b4c";g.beginPath();g.arc(bx-2,by-2,islR*0.1,0,7);g.fill();}
-  // ego by phase: enter from BOTTOM road -> go 180° around the island -> exit UP the TOP road
+  // ego by phase: enter from BOTTOM road via a tangential easement -> circulate the island -> exit UP the TOP road
   let ex,ey,eh;
-  if(S.rndPhase==="approach"){const t=sm(1-Math.max(0,Math.min(1,S.appDist/60)));
-    ex=cx;ey=lerp(SH+30,cy+R,t);eh=-Math.PI/2;}                      // ease up onto the ring CENTRELINE (radius R, matches the arc start — no pop)
-  else if(S.rndPhase==="arc"){const pp=Math.min(1,S.rndProg),th=Math.PI/2-pp*Math.PI; // 180°: bottom -> right -> top
+  const TH0=Math.PI/2-0.62;                                          // tangential merge point on the lower-right of the ring
+  const mx=cx+R*Math.cos(TH0),my=cy+R*Math.sin(TH0);                // ring merge point
+  const mtan=Math.atan2(-Math.cos(TH0),Math.sin(TH0));             // ring circulation heading at the merge point
+  if(S.rndPhase==="approach"){const t=Math.max(0,Math.min(1,1-S.appDist/60));
+    const tS=0.5;                                                    // first half: drive straight up the entry road
+    if(t<tS){ex=cx;ey=lerp(SH+30,cy+R+46,sm(t/tS));eh=-Math.PI/2;}
+    else{const u=sm((t-tS)/(1-tS));                                  // second half: Bezier easement that curves right and joins the ring TANGENTIALLY
+      const P=[[cx,cy+R+46],[cx,cy+R-4],[mx-Math.cos(mtan)*52,my-Math.sin(mtan)*52],[mx,my]];
+      const p=bez(P,u),d=bezD(P,u);ex=p[0];ey=p[1];eh=Math.atan2(d[1],d[0]);}}
+  else if(S.rndPhase==="arc"){const pp=Math.min(1,S.rndProg),th=TH0-pp*(TH0+Math.PI/2); // from the merge point round to the top
     ex=cx+R*Math.cos(th);ey=cy+R*Math.sin(th);const tan=Math.atan2(-Math.cos(th),Math.sin(th));
-    const BL=0.24;                                                   // wider turn-in / turn-out blend = gentler corners
-    eh=pp<BL?lerpAng(-Math.PI/2,tan,sm(pp/BL)):(pp>1-BL?lerpAng(tan,-Math.PI/2,sm((pp-(1-BL))/BL)):tan);}
-  else{const p=sm(Math.min(1,S.rndProg));                            // smooth exit: leave the ring CENTRELINE (radius R) straight UP the top road
+    const BL=0.22;                                                   // entry is already tangent (easement) — only ease the heading OUT at the top exit
+    eh=pp>1-BL?lerpAng(tan,-Math.PI/2,sm((pp-(1-BL))/BL)):tan;}
+  else{const p=sm(Math.min(1,S.rndProg));                            // smooth exit: leave the ring straight UP the top road (unchanged)
     ex=cx;ey=lerp(cy-R,-70,p);eh=-Math.PI/2;}
   drawRingBeam(ex,ey,eh);
   drawCarRot(ex,ey,eh,0.92,hostShape(),S.ego.braking&&S.ego.speed>0.1,true);
@@ -808,11 +816,12 @@ const EQ={
     derivNote:"הקורלציה ממקסמת את יחס האות-לרעש — 'דוחסת' את הרעש ומקפיצה פיק חד בזמן ההגעה."},
 };
 function bidi(s){return String(s).replace(/([^֐-׿\s]+)/g,"<bdi>$1</bdi>");}
+function radi(s){return String(s).replace(/√\(([^()]*)\)/g,'√<span class="rad">$1</span>');}  // draw a proper overline (vinculum) over √(...) contents
 function renderScenMath(){const sc=SCEN[S.scenKey];$("scenmath-title").textContent="Scenario Math · "+sc.name;
   const box=$("scenmath");box.innerHTML="";
   sc.eqs.forEach(key=>{const e=EQ[key];const d=document.createElement("div");d.className="eqcard";
     d.innerHTML=`<div class="h"><span class="t">${e.title}</span><button class="infobtn" data-eq="${key}">i</button></div>
-      <div class="f">${e.short}</div><div class="d rtl">${bidi(e.sub)}</div>`;box.appendChild(d);});
+      <div class="f">${radi(e.short)}</div><div class="d rtl">${bidi(e.sub)}</div>`;box.appendChild(d);});
   box.querySelectorAll(".infobtn").forEach(b=>b.addEventListener("click",ev=>{ev.stopPropagation();openEq(b.dataset.eq);}));}
 
 // ===== MODALS =====
@@ -824,10 +833,10 @@ function openEq(key){S.specOpen=false;const e=EQ[key];let dl="";
   for(const [t,d] of e.terms())dl+=`<div class="termrow"><div class="sym">${t}</div><div class="exp">${bidi(d)}</div></div>`;
   let deriv="";
   if(e.deriv){const rows=e.deriv.slice();if(e.substep)rows.push(e.substep());
-    const steps=rows.map(([f,n])=>`<div class="dstep"><span class="f">${f}</span><span class="n">${bidi(n)}</span></div>`).join("");
+    const steps=rows.map(([f,n])=>`<div class="dstep"><span class="f">${radi(f)}</span><span class="n">${bidi(n)}</span></div>`).join("");
     deriv=`<div class="derivbox"><div class="dt">פיתוח מתמטי · Derivation</div>${e.derivOf?`<div class="dof rtl">${bidi(e.derivOf)}</div>`:""}${steps}</div>`
       +(e.derivNote?`<div class="note rtl">${bidi(e.derivNote)}</div>`:"");}
-  openModal(`<h3>${e.title}</h3><div class="sub rtl">${bidi(e.sub)}</div><div class="eq">${e.full}</div>${deriv}<dl>${dl}</dl><div class="note rtl">${bidi(e.note)}</div>`);}
+  openModal(`<h3>${e.title}</h3><div class="sub rtl">${bidi(e.sub)}</div><div class="eq">${radi(e.full)}</div>${deriv}<dl>${dl}</dl><div class="note rtl">${bidi(e.note)}</div>`);}
 window.explainTarget=()=>{S.specOpen=false;
   const dl=[
     ["Target Speed","מהירות המטרה שמלפנים כפי שה-LiDAR מודד אותה. הכיתוב Stationary פירושו עצם נייח — הולך רגל, ילד, עבודות בכביש או אי הכיכר. הכיתוב Moving פירושו רכב נע, והמספר הוא מהירותו בקמ\"ש."],
