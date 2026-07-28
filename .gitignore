@@ -4,3 +4,9 @@ __pycache__/
 *.log
 st_out.log
 st_err.log
+
+# Node / TS / Vite (new app: apps/simulator)
+node_modules/
+apps/simulator/dist/
+apps/simulator/.vite/
+.DS_Store
