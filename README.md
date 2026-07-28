@@ -99,14 +99,16 @@ Every equation above is explained term-by-term inside the app via the `[i]` butt
 
 ## Architecture
 
+**The web app (`docs/simulator.html`) is the canonical implementation** — the single source of truth for the physics, DSP, and decision logic. Everything runs client-side with zero dependencies.
+
 ```
-Web build (client-side, zero dependencies)
+Canonical build (client-side, zero dependencies)   ← source of truth
 └── docs/
     ├── index.html        # deployed simulator (GitHub Pages)
-    ├── simulator.html    # single self-contained source (Canvas + JS)
+    ├── simulator.html    # single self-contained source (Canvas + JS): physics · DSP · decision · render
     └── physics.html      # equation / model reference
 
-Python engine (original implementation)
+Original prototype (reference only, not kept in lock-step)
 └── lidar_sim/
     ├── physics/          # waveform · optical channel (radar eq + Beer–Lambert) · AWGN receiver
     ├── dsp/              # matched filter · detection · moving-average · safety model
@@ -115,7 +117,7 @@ Python engine (original implementation)
     └── tests/            # numerical physics tests
 ```
 
-The **JavaScript decision core mirrors the Python engine exactly** and is validated the same way (deterministic scenario sweeps, no-collision invariants, deceleration measured against `a = μg`).
+The Python package was the **original prototype** that the project grew from; the interactive web build is now the definitive version. The two share the same models and equations but are **not** kept numerically identical — where they differ, the web app is authoritative.
 
 ---
 
