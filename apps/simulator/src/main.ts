@@ -18,6 +18,7 @@ const series = new TimeSeries([
 ]);
 let last: Frame | null = null;
 let freezeT = 0;
+let scroll = 0; // metres travelled, for lane-dash animation
 
 // ---------- DOM ----------
 const app = document.getElementById('app')!;
@@ -140,12 +141,15 @@ function rebuild(): void {
   clock.t = 0;
   series.reset();
   freezeT = 0;
+  scroll = 0;
   last = null;
 }
 
 $<HTMLSelectElement>('scenario').addEventListener('change', (e) => {
   const key = (e.target as HTMLSelectElement).value;
-  store.patch('scenario', SCENARIOS[key]);
+  const sc = SCENARIOS[key];
+  store.patch('scenario', sc);
+  store.patch('lidar', { fogAlpha: sc.fog, reflectivity: sc.reflectivity });
   syncControlsFromConfig();
   rebuild();
 });
@@ -183,7 +187,14 @@ $('restart').addEventListener('click', rebuild);
 
 // ---------- render ----------
 function render(f: Frame): void {
-  drawScene(wctx, f, store.get().scenario.leadRange0, worldW, worldH);
+  const c = store.get();
+  drawScene(
+    wctx,
+    f,
+    { egoVisual: c.vehicle.visual, leadKind: c.scenario.leadKind, fogAlpha: c.lidar.fogAlpha, scroll },
+    worldW,
+    worldH,
+  );
 
   $('hud').innerHTML =
     `<div class="row" style="color:${COLORS.cyan}">${msToKmh(f.egoSpeed).toFixed(0)} <span class="k">km/h</span></div>` +
@@ -212,7 +223,6 @@ function render(f: Frame): void {
   $('reasons').innerHTML = f.decision.reasons.map((r) => `• ${r}`).join('<br>');
 
   // live D_required substitution
-  const c = store.get();
   const ve = f.egoSpeed;
   const lat = c.decision.tDsp + c.decision.tFilter + c.vehicle.actuatorLatency;
   const decel = c.vehicle.mu * G;
@@ -237,7 +247,10 @@ function frame(now: number): void {
   const steps = clock.pump(dt);
   for (let i = 0; i < steps; i++) {
     last = pipeline.tick(DT);
-    if (last.outcome === 'RUNNING') series.push({ true: last.trueRange, est: last.estRange ?? NaN });
+    if (last.outcome === 'RUNNING') {
+      scroll += last.egoSpeed * DT;
+      series.push({ true: last.trueRange, est: last.estRange ?? NaN });
+    }
   }
   if (last) {
     render(last);

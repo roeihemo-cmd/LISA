@@ -1,12 +1,22 @@
 // Every simulator parameter, in SI units, grouped by pipeline stage.
 // Values faithfully reproduce the original simulator's constants.
 
+export type VehicleKind = 'sedan' | 'compact' | 'truck';
+
+export interface VehicleVisual {
+  kind: VehicleKind;
+  body: string;
+  cab: string;
+  trim: string;
+}
+
 export interface VehicleConfig {
   name: string;
   mu: number; // tyre–road friction coefficient [-]  (decel = mu*g)
   aMax: number; // max forward acceleration [m/s^2]
   actuatorLatency: number; // brake actuator delay tAct [s]
   maxSpeed: number; // [m/s]
+  visual: VehicleVisual;
 }
 
 export interface ScenarioConfig {
@@ -16,6 +26,9 @@ export interface ScenarioConfig {
   leadSpeed0: number; // lead speed [m/s] (0 = stalled)
   leadBrakeAt: number; // sim time the lead slams the brakes [s]; Infinity = never
   leadDecel: number; // lead braking deceleration [m/s^2]
+  leadKind: 'car' | 'obstacle';
+  fog: number; // scene fog/dust alpha [1/m]
+  reflectivity: number; // scene target reflectivity rho [-]
   roadLength: number; // [m]
 }
 

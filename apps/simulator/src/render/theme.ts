@@ -53,7 +53,7 @@ export function injectStyles(): void {
   .banner { position:absolute; top:50%; left:0; right:0; transform:translateY(-50%); text-align:center;
     font-weight:800; letter-spacing:.06em; font-size:1.5rem; text-shadow:0 0 20px currentColor; pointer-events:none; }
 
-  .transport { position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; }
+  .transport { position: absolute; top: 14px; right: 16px; display: flex; gap: 8px; }
   .transport button { background: ${COLORS.panel2}; color: ${COLORS.ink}; border: 1px solid ${COLORS.edge};
     border-radius: 8px; padding: 8px 14px; font-size: .82rem; cursor: pointer; }
   .transport button:hover { border-color: ${COLORS.cyan}; }

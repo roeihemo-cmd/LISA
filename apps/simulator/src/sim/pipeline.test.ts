@@ -29,7 +29,7 @@ describe('pipeline (end-to-end)', () => {
 
   it('a slow ego in fog stops in time; a fast ego collides', () => {
     const slow = structuredClone(DEFAULT_CONFIG);
-    slow.scenario = { ...SCENARIOS.stalled, egoSpeed0: kmhToMs(25) };
+    slow.scenario = { ...SCENARIOS.fog, egoSpeed0: kmhToMs(25) };
     slow.lidar = { ...slow.lidar, fogAlpha: 0.18 };
     slow.vehicle = VEHICLES.tesla;
 
