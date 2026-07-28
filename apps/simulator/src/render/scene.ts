@@ -1,10 +1,9 @@
 import type { Frame } from '../sim/pipeline';
 import { COLORS } from './theme';
-import { drawVehicleRear, drawRoadworks, type VehicleVisual } from './vehicles';
+import { drawVehicleRear, drawRoadworks, drawPedestrian, drawBall, type VehicleVisual } from './vehicles';
 
 export interface SceneOpts {
   egoVisual: VehicleVisual;
-  leadKind: 'car' | 'obstacle';
   fogAlpha: number;
   scroll: number; // metres travelled, for lane-dash animation
 }
@@ -123,11 +122,26 @@ export function drawScene(ctx: CanvasRenderingContext2D, frame: Frame, opts: Sce
     ctx.fill();
   }
 
-  // lead vehicle / obstacle at its TRUE distance
+  // target at its TRUE position (longitudinal range + lateral offset)
   if (frame.trueRange > 0 && frame.trueRange < 320) {
-    const p = proj(frame.trueRange, 0);
-    if (opts.leadKind === 'obstacle') drawRoadworks(ctx, p.x, p.y, Math.max(0.12, p.s));
-    else drawVehicleRear(ctx, p.x, p.y, Math.max(0.12, p.s), LEAD_CAR, frame.leadSpeed < 0.3 || frame.decision.brake);
+    const p = proj(frame.trueRange, frame.targetLat);
+    const s = Math.max(0.12, p.s);
+    switch (frame.targetKind) {
+      case 'obstacle':
+        drawRoadworks(ctx, p.x, p.y, s);
+        break;
+      case 'pedestrian':
+        drawPedestrian(ctx, p.x, p.y, s, false);
+        break;
+      case 'child': {
+        drawPedestrian(ctx, p.x, p.y, s, true);
+        const b = proj(frame.trueRange, frame.targetLat + 1.0);
+        drawBall(ctx, b.x, b.y, Math.max(0.12, b.s));
+        break;
+      }
+      default:
+        drawVehicleRear(ctx, p.x, p.y, s, LEAD_CAR, frame.leadSpeed < 0.3 || frame.decision.brake);
+    }
   }
 
   // ego (chase cam, bottom)

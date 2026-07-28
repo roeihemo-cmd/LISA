@@ -19,14 +19,20 @@ export interface VehicleConfig {
   visual: VehicleVisual;
 }
 
+export type TargetKind = 'car' | 'obstacle' | 'pedestrian' | 'child';
+export type TargetBehavior = 'brake' | 'stalled' | 'static' | 'cutin' | 'cross';
+
 export interface ScenarioConfig {
   name: string;
   egoSpeed0: number; // initial ego speed [m/s]
-  leadRange0: number; // initial gap to the lead object [m]
-  leadSpeed0: number; // lead speed [m/s] (0 = stalled)
+  leadRange0: number; // initial longitudinal gap to the target [m]
+  leadSpeed0: number; // target longitudinal speed [m/s] (0 = static)
   leadBrakeAt: number; // sim time the lead slams the brakes [s]; Infinity = never
   leadDecel: number; // lead braking deceleration [m/s^2]
-  leadKind: 'car' | 'obstacle';
+  targetKind: TargetKind;
+  behavior: TargetBehavior;
+  lat0: number; // initial lateral offset [m] (0 = in-lane; adjacent lane ≈ 3.5)
+  crossSpeed: number; // lateral speed for crossing/merging [m/s]
   fog: number; // scene fog/dust alpha [1/m]
   reflectivity: number; // scene target reflectivity rho [-]
   roadLength: number; // [m]

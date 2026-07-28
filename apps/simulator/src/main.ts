@@ -191,7 +191,7 @@ function render(f: Frame): void {
   drawScene(
     wctx,
     f,
-    { egoVisual: c.vehicle.visual, leadKind: c.scenario.leadKind, fogAlpha: c.lidar.fogAlpha, scroll },
+    { egoVisual: c.vehicle.visual, fogAlpha: c.lidar.fogAlpha, scroll },
     worldW,
     worldH,
   );

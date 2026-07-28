@@ -1,4 +1,4 @@
-import type { SimConfig } from '../config/schema';
+import type { SimConfig, TargetKind } from '../config/schema';
 import type { DecisionState } from '../decision/types';
 import { Rng } from '../core/rng';
 import { World } from '../world/world';
@@ -16,6 +16,9 @@ export interface Frame {
   trueRange: number;
   egoSpeed: number;
   leadSpeed: number;
+  targetLat: number;
+  targetKind: TargetKind;
+  inPath: boolean;
   // sensor + perception (what the car knows)
   measRange: number | null;
   snr: number;
@@ -29,6 +32,7 @@ export interface Frame {
 
 const COLLISION_GAP = 1.5; // m — bumper contact
 const STOP_SPEED = 0.2; // m/s — considered stopped
+const LANE_HALF = 2.0; // m — a target beyond this lateral offset is out of the driving path
 
 export class Pipeline {
   private cfg: SimConfig;
@@ -54,8 +58,12 @@ export class Pipeline {
     if (this.outcome === 'RUNNING') {
       this.world.step(dt);
 
+      const target = this.world.targets[0];
+      const inPath = Math.abs(target.lat) < LANE_HALF;
       const trueRange = this.world.trueRangeToLead();
-      const meas = this.lidar.measure(trueRange, this.cfg.lidar, this.rng);
+      let meas = this.lidar.measure(trueRange, this.cfg.lidar, this.rng);
+      // A target outside the driving path is not a forward obstacle (no valid return in-lane).
+      if (!inPath) meas = { detected: false, measRange: null, snr: meas.snr, amp: meas.amp };
       const est = this.estimator.update(meas, dt);
       const decision = decide({
         egoSpeed: this.world.ego.v,
@@ -68,11 +76,11 @@ export class Pipeline {
       this.world.applyEgo(this.vehicle.speed, this.vehicle.a);
 
       const gap = trueRange as number;
-      if (gap <= COLLISION_GAP) this.outcome = 'COLLISION';
-      else if (this.vehicle.speed <= STOP_SPEED && this.world.targets[0].v <= STOP_SPEED) this.outcome = 'STOPPED';
+      if (inPath && gap <= COLLISION_GAP) this.outcome = 'COLLISION';
+      else if (this.vehicle.speed <= STOP_SPEED && target.v <= STOP_SPEED && gap > COLLISION_GAP) this.outcome = 'STOPPED';
 
       this.lastDecision = decision;
-      return this.frame(trueRange as number, meas, est, decision);
+      return this.frame(trueRange as number, meas, est, decision, target.lat, target.kind, inPath);
     }
     // frozen on outcome — re-emit a static frame
     return this.staticFrame();
@@ -83,12 +91,18 @@ export class Pipeline {
     meas: ReturnType<Lidar['measure']>,
     est: ReturnType<Estimator['update']>,
     decision: DecisionState,
+    targetLat: number,
+    targetKind: TargetKind,
+    inPath: boolean,
   ): Frame {
     return {
       time: this.world.time,
       trueRange,
       egoSpeed: this.world.ego.v,
       leadSpeed: this.world.targets[0].v,
+      targetLat,
+      targetKind,
+      inPath,
       measRange: meas.measRange,
       snr: meas.snr,
       detected: meas.detected,
@@ -104,11 +118,15 @@ export class Pipeline {
     const decision =
       this.lastDecision ??
       ({ mode: 'CRUISE', brake: false, targetSpeed: 0, inevitable: false, ttc: Infinity, dReq: 0, dMinStop: 0, reasons: [] } as DecisionState);
+    const target = this.world.targets[0];
     return {
       time: this.world.time,
       trueRange: this.world.trueRangeToLead() as number,
       egoSpeed: this.world.ego.v,
-      leadSpeed: this.world.targets[0].v,
+      leadSpeed: target.v,
+      targetLat: target.lat,
+      targetKind: target.kind,
+      inPath: Math.abs(target.lat) < LANE_HALF,
       measRange: null,
       snr: 0,
       detected: false,
