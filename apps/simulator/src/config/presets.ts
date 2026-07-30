@@ -54,6 +54,12 @@ export const SCENARIOS: Record<string, ScenarioConfig> = {
     lat0: 0, crossSpeed: 0, fog: 0.02, reflectivity: 0.4, roadLength: 600,
     challenge: 'עבודות בכביש — מחסום וקונוסים. לעצור לפניהם.', eqs: ['matched', 'braking'],
   },
+  roundabout: {
+    name: 'Traffic Roundabout', egoSpeed0: kmhToMs(90), leadRange0: 60, leadSpeed0: 0,
+    leadBrakeAt: Infinity, leadDecel: 0, targetKind: 'obstacle', behavior: 'roundabout',
+    lat0: 0, crossSpeed: 0, fog: 0.02, reflectivity: 0.6, roadLength: 600,
+    challenge: 'כניסה לכיכר — האטה למהירות הפנייה הבטוחה V_max=√(μ·g·r).', eqs: ['curve', 'braking'],
+  },
 };
 
 export const DEFAULT_CONFIG: SimConfig = {

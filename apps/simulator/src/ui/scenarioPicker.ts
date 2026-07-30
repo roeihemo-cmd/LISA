@@ -28,6 +28,11 @@ function preview(key: string): string {
   else if (key === 'roadworks')
     el = `<rect x="90" y="52" width="40" height="12" rx="2" fill="#ffb020"/>
       <polygon points="98,52 94,66 102,66" fill="#ff6a2a"/><polygon points="122,52 118,66 126,66" fill="#ff6a2a"/>`;
+  if (key === 'roundabout')
+    return `<svg viewBox="0 0 220 120"><rect width="220" height="120" fill="#0a1512"/>
+      <circle cx="110" cy="60" r="34" fill="none" stroke="#2a3646" stroke-width="14"/>
+      <circle cx="110" cy="60" r="17" fill="#1e6437"/>
+      <rect x="100" y="94" width="20" height="18" rx="4" fill="#12212f" stroke="#00e0ff"/></svg>`;
   return `<svg viewBox="0 0 220 120">${road}${el}${ego}</svg>`;
 }
 

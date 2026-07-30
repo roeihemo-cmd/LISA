@@ -20,7 +20,7 @@ export interface VehicleConfig {
 }
 
 export type TargetKind = 'car' | 'obstacle' | 'pedestrian' | 'child';
-export type TargetBehavior = 'brake' | 'stalled' | 'static' | 'cutin' | 'cross';
+export type TargetBehavior = 'brake' | 'stalled' | 'static' | 'cutin' | 'cross' | 'roundabout';
 
 export interface ScenarioConfig {
   name: string;

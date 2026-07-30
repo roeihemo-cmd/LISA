@@ -1,5 +1,6 @@
 import { injectStyles, COLORS } from './render/theme';
 import { drawScene } from './render/scene';
+import { drawRoundabout } from './render/roundabout';
 import { TimeSeries } from './render/plot';
 import { ConfigStore } from './config/store';
 import { VEHICLES, SCENARIOS } from './config/presets';
@@ -231,28 +232,25 @@ $('restart').addEventListener('click', rebuild);
 // ---------- render ----------
 function render(f: Frame): void {
   const c = store.get();
-  drawScene(
-    wctx,
-    f,
-    { egoVisual: c.vehicle.visual, fogAlpha: c.lidar.fogAlpha, scroll },
-    worldW,
-    worldH,
-  );
+  const round = !!f.rnd;
+  if (round) drawRoundabout(wctx, f, c.vehicle.visual, worldW, worldH);
+  else drawScene(wctx, f, { egoVisual: c.vehicle.visual, fogAlpha: c.lidar.fogAlpha, scroll }, worldW, worldH);
 
+  const rangeLabel = round ? 'm · ISLAND' : 'm · LiDAR';
   $('hud').innerHTML =
     `<div class="row" style="color:${COLORS.cyan}">${msToKmh(f.egoSpeed).toFixed(0)} <span class="k">km/h</span></div>` +
     `<div class="row" style="color:${f.detected ? COLORS.est : COLORS.red}">${
       f.estRange != null ? f.estRange.toFixed(1) : '-- LOST'
-    } <span class="k">m · LiDAR</span></div>`;
+    } <span class="k">${rangeLabel}</span></div>`;
 
   const banner = $('banner');
   if (f.outcome === 'COLLISION') setBanner(banner, 'COLLISION', COLORS.red);
-  else if (f.outcome === 'STOPPED') setBanner(banner, 'STOPPED SAFELY', COLORS.green);
+  else if (f.outcome === 'STOPPED') setBanner(banner, round ? 'ROUNDABOUT CLEARED' : 'STOPPED SAFELY', COLORS.green);
   else if (f.decision.inevitable) setBanner(banner, 'COLLISION IMMINENT', COLORS.red);
   else banner.style.display = 'none';
 
   const err = f.estRange != null ? f.estRange - f.trueRange : NaN;
-  $('t-true').textContent = `${f.trueRange.toFixed(1)} m`;
+  $('t-true').textContent = round ? 'island' : `${f.trueRange.toFixed(1)} m`;
   $('t-est').textContent = f.estRange != null ? `${f.estRange.toFixed(1)} m` : '-- LOST';
   $('t-err').textContent = isFinite(err) ? `${err >= 0 ? '+' : ''}${err.toFixed(2)} m` : '—';
   $('t-snr').textContent = f.snr > 0 ? `${(20 * Math.log10(f.snr)).toFixed(0)} dB` : '-∞';
@@ -261,7 +259,8 @@ function render(f: Frame): void {
   $('t-dreq').textContent = `${f.decision.dReq.toFixed(1)} m`;
   const mode = $('t-mode');
   mode.textContent = f.decision.mode;
-  mode.style.color = f.decision.mode === 'AEB' ? COLORS.red : f.decision.mode === 'FCW' ? COLORS.amber : COLORS.cyan;
+  mode.style.color =
+    f.decision.mode === 'AEB' ? COLORS.red : f.decision.mode === 'CRUISE' ? COLORS.cyan : COLORS.amber;
 
   $('reasons').innerHTML = f.decision.reasons.map((r) => `• ${r}`).join('<br>');
 

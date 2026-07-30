@@ -1,4 +1,4 @@
-export type DecisionMode = 'CRUISE' | 'FCW' | 'AEB';
+export type DecisionMode = 'CRUISE' | 'FCW' | 'AEB' | 'SLOWING' | 'ROUNDABOUT';
 
 export interface DecisionState {
   mode: DecisionMode;

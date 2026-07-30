@@ -48,4 +48,20 @@ describe('pipeline (end-to-end)', () => {
     expect(run(slow)).toBe('STOPPED');
     expect(run(fast)).toBe('COLLISION');
   });
+
+  it('roundabout slows to the safe speed and completes the circuit', () => {
+    const cfg = structuredClone(DEFAULT_CONFIG);
+    cfg.scenario = SCENARIOS.roundabout;
+    const p = new Pipeline(cfg);
+    let f = p.tick(0.005);
+    let minV = Infinity;
+    for (let i = 0; i < 60000 && f.outcome === 'RUNNING'; i++) {
+      f = p.tick(0.005);
+      if (f.rnd?.phase === 'arc') minV = Math.min(minV, f.egoSpeed);
+    }
+    expect(f.outcome).toBe('STOPPED');
+    // during the arc the ego must have slowed to ≈ the safe cornering speed
+    const vSafe = Math.sqrt(cfg.vehicle.mu * 9.81 * 25);
+    expect(minV).toBeLessThan(vSafe + 1);
+  });
 });
