@@ -1,7 +1,8 @@
 import { injectStyles, COLORS } from './render/theme';
 import { drawScene } from './render/scene';
 import { drawRoundabout } from './render/roundabout';
-import { TimeSeries } from './render/plot';
+import { TimeSeries, drawWaveform } from './render/plot';
+import { computeTraces } from './sensors/lidar';
 import { ConfigStore } from './config/store';
 import { VEHICLES, SCENARIOS } from './config/presets';
 import { Pipeline, type Frame } from './sim/pipeline';
@@ -71,19 +72,30 @@ app.innerHTML = `
   <div class="rail right">
     <div class="sec">Analytics</div>
     <div class="tiles">
+      <div class="tile"><div class="k">Ego Speed</div><div class="v mono" id="t-vego" style="color:${COLORS.cyan}">—</div></div>
+      <div class="tile"><div class="k">Target Speed</div><div class="v mono" id="t-vtgt">—</div></div>
+      <div class="tile"><div class="k">Closing Δv</div><div class="v mono" id="t-closing">—</div></div>
+      <div class="tile"><div class="k">TTC</div><div class="v mono" id="t-ttc">—</div></div>
       <div class="tile"><div class="k">True Range</div><div class="v mono" id="t-true" style="color:${COLORS.truth}">—</div></div>
       <div class="tile"><div class="k">Est Range · MA8</div><div class="v mono" id="t-est" style="color:${COLORS.est}">—</div></div>
       <div class="tile"><div class="k">Sensor Error</div><div class="v mono" id="t-err">—</div></div>
       <div class="tile"><div class="k">SNR</div><div class="v mono" id="t-snr">—</div></div>
-      <div class="tile"><div class="k">TTC</div><div class="v mono" id="t-ttc">—</div></div>
-      <div class="tile"><div class="k">Closing Δv</div><div class="v mono" id="t-closing">—</div></div>
       <div class="tile"><div class="k">Stop Req</div><div class="v mono" id="t-dreq" style="color:${COLORS.amber}">—</div></div>
       <div class="tile"><div class="k">Decision</div><div class="v mono" id="t-mode">—</div></div>
     </div>
+    <div class="dvline mono" id="t-dvbreak"></div>
 
     <div class="plot">
+      <div class="cap"><span>Raw Signal r(t)</span><span class="legend"><i style="background:${COLORS.red}"></i>echo+noise</span></div>
+      <canvas id="plot-raw" style="width:100%;height:86px"></canvas>
+    </div>
+    <div class="plot">
+      <div class="cap"><span>Matched Filter y(t)</span><span class="legend"><i style="background:${COLORS.green}"></i>y <i style="background:${COLORS.amber}"></i>threshold</span></div>
+      <canvas id="plot-mf" style="width:100%;height:86px"></canvas>
+    </div>
+    <div class="plot">
       <div class="cap"><span>Range vs time</span><span class="legend"><i style="background:${COLORS.truth}"></i>true <i style="background:${COLORS.est}"></i>est</span></div>
-      <canvas id="plot" style="width:100%;height:120px"></canvas>
+      <canvas id="plot" style="width:100%;height:86px"></canvas>
     </div>
 
     <div class="eqcard">
@@ -101,12 +113,20 @@ app.innerHTML = `
 const $ = <T extends HTMLElement = HTMLElement>(id: string): T => document.getElementById(id) as T;
 const worldCanvas = $<HTMLCanvasElement>('world');
 const plotCanvas = $<HTMLCanvasElement>('plot');
+const rawCanvas = $<HTMLCanvasElement>('plot-raw');
+const mfCanvas = $<HTMLCanvasElement>('plot-mf');
 const wctx = worldCanvas.getContext('2d')!;
 const pctx = plotCanvas.getContext('2d')!;
+const rctx = rawCanvas.getContext('2d')!;
+const mctx = mfCanvas.getContext('2d')!;
 let worldW = 0,
   worldH = 0,
   plotW = 0,
-  plotH = 0;
+  plotH = 0,
+  rawW = 0,
+  rawH = 0,
+  mfW = 0,
+  mfH = 0;
 
 function fit(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D): [number, number] {
   const dpr = window.devicePixelRatio || 1;
@@ -119,6 +139,8 @@ function fit(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D): [number,
 function fitAll(): void {
   [worldW, worldH] = fit(worldCanvas, wctx);
   [plotW, plotH] = fit(plotCanvas, pctx);
+  [rawW, rawH] = fit(rawCanvas, rctx);
+  [mfW, mfH] = fit(mfCanvas, mctx);
 }
 window.addEventListener('resize', fitAll);
 
@@ -127,7 +149,9 @@ function syncControlsFromConfig(): void {
   const c = store.get();
   $<HTMLSelectElement>('vehicle').value =
     Object.entries(VEHICLES).find(([, v]) => v.name === c.vehicle.name)?.[0] ?? 'tesla';
-  ($('speed') as HTMLInputElement).value = String(Math.round(msToKmh(c.scenario.egoSpeed0)));
+  const sp = $('speed') as HTMLInputElement;
+  sp.max = String(Math.round(msToKmh(c.vehicle.maxSpeed))); // truck slider caps at 90 km/h
+  sp.value = String(Math.round(msToKmh(c.scenario.egoSpeed0)));
   ($('fog') as HTMLInputElement).value = String(c.lidar.fogAlpha);
   ($('rho') as HTMLInputElement).value = String(c.lidar.reflectivity);
   ($('noise') as HTMLInputElement).value = String(c.lidar.noise);
@@ -198,11 +222,16 @@ worldCanvas.addEventListener('dblclick', () => {
   rebuild();
 });
 $<HTMLSelectElement>('vehicle').addEventListener('change', (e) => {
-  store.patch('vehicle', VEHICLES[(e.target as HTMLSelectElement).value]);
+  const v = VEHICLES[(e.target as HTMLSelectElement).value];
+  store.patch('vehicle', v);
+  // clamp the set speed to what this vehicle can actually do (e.g. truck ≤ 90 km/h)
+  if (store.get().scenario.egoSpeed0 > v.maxSpeed) store.patch('scenario', { egoSpeed0: v.maxSpeed });
+  syncControlsFromConfig();
   rebuild();
 });
 $('speed').addEventListener('input', (e) => {
-  store.patch('scenario', { egoSpeed0: kmhToMs(+(e.target as HTMLInputElement).value) });
+  const want = kmhToMs(+(e.target as HTMLInputElement).value);
+  store.patch('scenario', { egoSpeed0: Math.min(want, store.get().vehicle.maxSpeed) });
   updateLabels();
   rebuild();
 });
@@ -250,12 +279,19 @@ function render(f: Frame): void {
   else banner.style.display = 'none';
 
   const err = f.estRange != null ? f.estRange - f.trueRange : NaN;
+  const vEgoKmh = msToKmh(f.egoSpeed);
+  const locked = f.detected && f.estRange != null && !round;
+  const vTgtKmh = locked ? vEgoKmh - msToKmh(f.estClosing) : NaN;
+  $('t-vego').textContent = `${vEgoKmh.toFixed(0)} km/h`;
+  $('t-vtgt').textContent = round ? 'island' : locked ? `${vTgtKmh.toFixed(0)} km/h` : '—';
+  $('t-closing').textContent = round ? '—' : locked ? `${msToKmh(f.estClosing).toFixed(0)} km/h` : '—';
+  $('t-dvbreak').textContent =
+    locked && isFinite(vTgtKmh) ? `Δv = V ${vEgoKmh.toFixed(0)} − T ${vTgtKmh.toFixed(0)} = ${(vEgoKmh - vTgtKmh).toFixed(0)} km/h` : '';
+  $('t-ttc').textContent = isFinite(f.decision.ttc) ? `${f.decision.ttc.toFixed(1)} s` : '—';
   $('t-true').textContent = round ? 'island' : `${f.trueRange.toFixed(1)} m`;
   $('t-est').textContent = f.estRange != null ? `${f.estRange.toFixed(1)} m` : '-- LOST';
   $('t-err').textContent = isFinite(err) ? `${err >= 0 ? '+' : ''}${err.toFixed(2)} m` : '—';
   $('t-snr').textContent = f.snr > 0 ? `${(20 * Math.log10(f.snr)).toFixed(0)} dB` : '-∞';
-  $('t-ttc').textContent = isFinite(f.decision.ttc) ? `${f.decision.ttc.toFixed(1)} s` : '—';
-  $('t-closing').textContent = `${msToKmh(f.estClosing).toFixed(0)} km/h`;
   $('t-dreq').textContent = `${f.decision.dReq.toFixed(1)} m`;
   const mode = $('t-mode');
   mode.textContent = f.decision.mode;
@@ -263,6 +299,11 @@ function render(f: Frame): void {
     f.decision.mode === 'AEB' ? COLORS.red : f.decision.mode === 'CRUISE' ? COLORS.cyan : COLORS.amber;
 
   $('reasons').innerHTML = f.decision.reasons.map((r) => `• ${r}`).join('<br>');
+
+  // DSP waveform plots (raw r(t) + matched filter y(t))
+  const tr = computeTraces(f.trueRange, c.lidar);
+  drawWaveform(rctx, tr.recv, rawW, rawH, COLORS.red);
+  drawWaveform(mctx, tr.mf, mfW, mfH, COLORS.green, tr.thr);
 
   // live D_required substitution
   const ve = f.egoSpeed;

@@ -62,6 +62,7 @@ export function injectStyles(): void {
   .tile { background: ${COLORS.panel2}; border: 1px solid ${COLORS.edge}; border-radius: 10px; padding: 9px 11px; }
   .tile .k { color: ${COLORS.faint}; font-size: .6rem; letter-spacing: .1em; text-transform: uppercase; }
   .tile .v { font-size: 1.15rem; font-weight: 700; margin-top: 2px; }
+  .dvline { font-family:monospace; font-size:.74rem; color:${COLORS.dim}; margin:8px 2px 0; text-align:center; }
 
   .plot { background: ${COLORS.panel2}; border: 1px solid ${COLORS.edge}; border-radius: 10px; padding: 8px; margin-top: 10px; }
   .plot .cap { font-size: .62rem; color: ${COLORS.faint}; letter-spacing:.1em; text-transform:uppercase; margin-bottom:4px; display:flex; justify-content:space-between; }

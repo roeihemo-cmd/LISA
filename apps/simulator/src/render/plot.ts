@@ -1,5 +1,50 @@
 import { COLORS } from './theme';
 
+/** Draw a single waveform (Float32Array) with autoscale + optional threshold line. */
+export function drawWaveform(
+  ctx: CanvasRenderingContext2D,
+  arr: Float32Array,
+  W: number,
+  H: number,
+  color: string,
+  threshold?: number,
+): void {
+  ctx.clearRect(0, 0, W, H);
+  let lo = Infinity;
+  let hi = -Infinity;
+  for (const v of arr) {
+    if (v < lo) lo = v;
+    if (v > hi) hi = v;
+  }
+  if (threshold != null && threshold > hi) hi = threshold;
+  const pad = 4;
+  const span = hi - lo || 1;
+  const y = (v: number): number => H - pad - ((v - lo) / span) * (H - 2 * pad);
+  const x = (i: number): number => pad + (i / (arr.length - 1)) * (W - 2 * pad);
+
+  if (threshold != null) {
+    ctx.strokeStyle = COLORS.amber;
+    ctx.globalAlpha = 0.7;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    ctx.moveTo(pad, y(threshold));
+    ctx.lineTo(W - pad, y(threshold));
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+  }
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  for (let i = 0; i < arr.length; i++) {
+    const px = x(i);
+    const py = y(arr[i]);
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+}
+
 interface Series {
   color: string;
   data: number[];

@@ -77,21 +77,25 @@ export function drawRoundabout(
     ctx.fill();
   }
 
-  // ego pose by phase
+  // ego pose by phase (smooth heading blend into/out of the ring)
   let ex = cx;
   let ey = cy + ro;
   let eh = -Math.PI / 2;
   const rnd = frame.rnd!;
   if (rnd.phase === 'approach') {
-    const t = 1 - Math.min(1, rnd.approach / 55);
+    const t = smooth(1 - Math.min(1, rnd.approach / 55));
     ey = H + 20 - t * (H + 20 - (cy + R));
     eh = -Math.PI / 2;
   } else if (rnd.phase === 'arc') {
     ex = cx + R * Math.cos(rnd.angle);
     ey = cy + R * Math.sin(rnd.angle);
-    eh = Math.atan2(-Math.cos(rnd.angle), Math.sin(rnd.angle));
+    const tan = Math.atan2(-Math.cos(rnd.angle), Math.sin(rnd.angle));
+    const BL = 0.18;
+    if (rnd.prog < BL) eh = lerpAng(-Math.PI / 2, tan, smooth(rnd.prog / BL));
+    else if (rnd.prog > 1 - BL) eh = lerpAng(tan, -Math.PI / 2, smooth((rnd.prog - (1 - BL)) / BL));
+    else eh = tan;
   } else {
-    ey = cy - R - rnd.prog * (cy - R + 40);
+    ey = cy - R - smooth(rnd.prog) * (cy - R + 40);
     eh = -Math.PI / 2;
   }
 
@@ -180,6 +184,15 @@ function drawWheel(ctx: CanvasRenderingContext2D, x: number, y: number, r: numbe
   ctx.arc(0, 0, 4, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
+}
+
+function smooth(t: number): number {
+  return t * t * (3 - 2 * t);
+}
+function lerpAng(a: number, b: number, t: number): number {
+  let d = ((b - a + Math.PI) % (Math.PI * 2)) - Math.PI;
+  if (d < -Math.PI) d += Math.PI * 2;
+  return a + d * t;
 }
 
 function rrect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {

@@ -40,13 +40,39 @@ export function drawScene(ctx: CanvasRenderingContext2D, frame: Frame, opts: Sce
   sky.addColorStop(1, '#243247');
   ctx.fillStyle = sky;
   ctx.fillRect(0, 0, W, horizonY);
-  // stars
+  // stars + moon + clouds
   if (!foggy) {
     ctx.fillStyle = 'rgba(220,230,245,.55)';
     for (const s of STARS) {
       ctx.beginPath();
       ctx.arc(s.x * W, s.y * horizonY * 0.8, s.r, 0, Math.PI * 2);
       ctx.fill();
+    }
+    // moon
+    const mx = W * 0.8;
+    const my = horizonY * 0.3;
+    const mg = ctx.createRadialGradient(mx, my, 2, mx, my, 30);
+    mg.addColorStop(0, 'rgba(232,239,250,.85)');
+    mg.addColorStop(1, 'rgba(232,239,250,0)');
+    ctx.fillStyle = mg;
+    ctx.beginPath();
+    ctx.arc(mx, my, 30, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#e0e8f4';
+    ctx.beginPath();
+    ctx.arc(mx, my, 12, 0, Math.PI * 2);
+    ctx.fill();
+    // drifting clouds
+    ctx.fillStyle = 'rgba(28,38,56,.55)';
+    const cp = (opts.scroll * 0.12) % (W + 160);
+    for (let i = 0; i < 4; i++) {
+      const clx = (((i * 190 - cp) % (W + 160)) + W + 160) % (W + 160) - 80;
+      const cly = horizonY * (0.24 + (i % 3) * 0.13);
+      for (const [ox, oy, rr2] of [[-16, 4, 12], [0, 0, 16], [16, 4, 12], [4, 6, 13]] as const) {
+        ctx.beginPath();
+        ctx.ellipse(clx + ox, cly + oy, rr2, rr2 * 0.6, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
   }
   // horizon sun-glow
@@ -209,6 +235,25 @@ export function drawScene(ctx: CanvasRenderingContext2D, frame: Frame, opts: Sce
     ctx.lineTo(cx + 10, bottomY - 20);
     ctx.closePath();
     ctx.fill();
+  }
+
+  // ---- crosswalk (zebra) under a crossing pedestrian/child ----
+  if ((frame.targetKind === 'pedestrian' || frame.targetKind === 'child') && frame.trueRange > 0 && frame.trueRange < 160) {
+    const dc = frame.trueRange;
+    ctx.fillStyle = 'rgba(236,241,248,.85)';
+    for (let lat = -4.4; lat <= 4.4; lat += 1.45) {
+      const a = proj(dc - 2.4, lat - 0.42);
+      const b = proj(dc - 2.4, lat + 0.42);
+      const cc = proj(dc + 2.4, lat + 0.42);
+      const dd = proj(dc + 2.4, lat - 0.42);
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.lineTo(cc.x, cc.y);
+      ctx.lineTo(dd.x, dd.y);
+      ctx.closePath();
+      ctx.fill();
+    }
   }
 
   // ---- target ----

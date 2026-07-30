@@ -17,7 +17,7 @@ class MovingAverage {
   }
 }
 
-const CLOSING_TAU = 0.4; // EMA time-constant for the derived closing speed [s]
+const CLOSING_TAU = 0.28; // EMA time-constant for the derived closing speed [s] — tracks changing speeds promptly
 
 /**
  * Turns raw LiDAR measurements into the car's belief:
