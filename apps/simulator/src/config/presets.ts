@@ -22,31 +22,37 @@ export const SCENARIOS: Record<string, ScenarioConfig> = {
     name: 'Cut-In', egoSpeed0: kmhToMs(90), leadRange0: 55, leadSpeed0: kmhToMs(60),
     leadBrakeAt: Infinity, leadDecel: 0, targetKind: 'car', behavior: 'cutin',
     lat0: 3.4, crossSpeed: 1.2, fog: 0.02, reflectivity: 0.6, roadLength: 600,
+    challenge: 'רכב מהנתיב הסמוך נכנס לפנינו — לזהות ולהאט/לעקוב מיד.', eqs: ['ttc', 'braking'],
   },
   hardBrake: {
     name: 'Hard Brake', egoSpeed0: kmhToMs(90), leadRange0: 90, leadSpeed0: kmhToMs(80),
     leadBrakeAt: 3.0, leadDecel: 8.0, targetKind: 'car', behavior: 'brake',
     lat0: 0, crossSpeed: 0, fog: 0.02, reflectivity: 0.6, roadLength: 600,
+    challenge: 'המוביל בולם חזק — בלימת חירום עד עצירה מלאה.', eqs: ['braking', 'ttc'],
   },
   pedestrian: {
     name: 'Pedestrian', egoSpeed0: kmhToMs(55), leadRange0: 62, leadSpeed0: 0,
     leadBrakeAt: Infinity, leadDecel: 0, targetKind: 'pedestrian', behavior: 'cross',
     lat0: -4.5, crossSpeed: 1.3, fog: 0.03, reflectivity: 0.1, roadLength: 600,
+    challenge: 'הולך רגל חוצה. החזריות נמוכה (ρ=0.1) → הד חלש וזיהוי מאוחר.', eqs: ['lidar', 'braking'],
   },
   child: {
     name: 'Child + Ball', egoSpeed0: kmhToMs(50), leadRange0: 44, leadSpeed0: 0,
     leadBrakeAt: Infinity, leadDecel: 0, targetKind: 'child', behavior: 'cross',
     lat0: -3.5, crossSpeed: 2.2, fog: 0.02, reflectivity: 0.12, roadLength: 600,
+    challenge: 'ילד + כדור חוצים בטווח קצר מאוד — בלימת חירום.', eqs: ['lidar', 'ttc', 'braking'],
   },
   fog: {
     name: 'Heavy Fog · Stalled Car', egoSpeed0: kmhToMs(70), leadRange0: 120, leadSpeed0: 0,
     leadBrakeAt: Infinity, leadDecel: 0, targetKind: 'car', behavior: 'stalled',
     lat0: 0, crossSpeed: 0, fog: 0.2, reflectivity: 0.6, roadLength: 600,
+    challenge: 'רכב תקוע בערפל כבד — Beer-Lambert מגביל את טווח הגילוי.', eqs: ['beer', 'lidar', 'braking'],
   },
   roadworks: {
     name: 'Road Works', egoSpeed0: kmhToMs(80), leadRange0: 100, leadSpeed0: 0,
     leadBrakeAt: Infinity, leadDecel: 0, targetKind: 'obstacle', behavior: 'static',
     lat0: 0, crossSpeed: 0, fog: 0.02, reflectivity: 0.4, roadLength: 600,
+    challenge: 'עבודות בכביש — מחסום וקונוסים. לעצור לפניהם.', eqs: ['matched', 'braking'],
   },
 };
 

@@ -6,6 +6,11 @@ import { VEHICLES, SCENARIOS } from './config/presets';
 import { Pipeline, type Frame } from './sim/pipeline';
 import { SimClock, DT } from './core/time';
 import { msToKmh, kmhToMs, G } from './core/units';
+import { openEquation } from './ui/equations';
+import { openSpecSheet } from './ui/specSheet';
+import { openScenarioPicker } from './ui/scenarioPicker';
+
+let scenKey = 'hardBrake';
 
 injectStyles();
 
@@ -27,9 +32,7 @@ app.innerHTML = `
     <div class="brand">LISA<small>LiDAR · ADAS Bench</small></div>
 
     <div class="sec">Scenario</div>
-    <div class="ctl"><select id="scenario">${Object.entries(SCENARIOS)
-      .map(([k, s]) => `<option value="${k}">${s.name}</option>`)
-      .join('')}</select></div>
+    <div class="ctl"><button class="scenbtn" id="scenBtn"><span class="nm" id="scenName"></span><span class="go">CHANGE ▸</span></button></div>
 
     <div class="sec">Vehicle</div>
     <div class="ctl"><select id="vehicle">${Object.entries(VEHICLES)
@@ -83,10 +86,11 @@ app.innerHTML = `
     </div>
 
     <div class="eqcard">
-      <div class="t">Required Stopping Distance</div>
+      <div class="hd"><div class="t">Required Stopping Distance</div><button class="infobtn" id="eq-braking" title="derivation">i</button></div>
       <div class="f mono">D_req = V·(T_dsp+T_flt+T_act) + V²/(2μg) + D_buf</div>
       <div class="f mono" id="eq-sub" style="color:${COLORS.est};margin-top:6px"></div>
       <div class="sub">The car brakes once the LiDAR-estimated gap drops below D_req.</div>
+      <div id="eq-chips" style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap"></div>
       <div class="reasons mono" id="reasons"></div>
     </div>
   </div>
@@ -136,6 +140,32 @@ function updateLabels(): void {
   $('noise-v').textContent = c.lidar.noise.toFixed(2);
 }
 
+function brakingExtra(): [string, string] {
+  const c = store.get();
+  const ve = last?.egoSpeed ?? c.scenario.egoSpeed0;
+  const lat = c.decision.tDsp + c.decision.tFilter + c.vehicle.actuatorLatency;
+  const decel = c.vehicle.mu * G;
+  const dReq = ve * lat + (ve * ve) / (2 * decel) + c.decision.safetyBuffer;
+  return [
+    `= ${ve.toFixed(1)}·${lat.toFixed(2)} + ${ve.toFixed(1)}²/(2·${decel.toFixed(2)}) + ${c.decision.safetyBuffer} = ${dReq.toFixed(1)} m`,
+    `הצבה מספרית לפי המהירות הנוכחית ${msToKmh(ve).toFixed(0)} קמ״ש.`,
+  ];
+}
+
+function updateScenUI(): void {
+  const sc = SCENARIOS[scenKey];
+  $('scenName').textContent = sc.name;
+  $('eq-chips').innerHTML = sc.eqs
+    .map(
+      (id) =>
+        `<button class="infobtn" data-eq="${id}" style="width:auto;padding:2px 9px;border-radius:6px;font-size:.66rem">${id} ⓘ</button>`,
+    )
+    .join('');
+  document.querySelectorAll<HTMLElement>('#eq-chips [data-eq]').forEach((b) =>
+    b.addEventListener('click', () => openEquation(b.dataset.eq!, b.dataset.eq === 'braking' ? brakingExtra() : undefined)),
+  );
+}
+
 function rebuild(): void {
   pipeline = new Pipeline(store.get());
   clock.t = 0;
@@ -145,12 +175,25 @@ function rebuild(): void {
   last = null;
 }
 
-$<HTMLSelectElement>('scenario').addEventListener('change', (e) => {
-  const key = (e.target as HTMLSelectElement).value;
+function applyScenario(key: string): void {
+  scenKey = key;
   const sc = SCENARIOS[key];
   store.patch('scenario', sc);
   store.patch('lidar', { fogAlpha: sc.fog, reflectivity: sc.reflectivity });
   syncControlsFromConfig();
+  updateScenUI();
+  rebuild();
+}
+$('scenBtn').addEventListener('click', () => openScenarioPicker(scenKey, applyScenario));
+$('eq-braking').addEventListener('click', () => openEquation('braking', brakingExtra()));
+
+// click the car → live spec sheet · double-click → 2× speed (stress test)
+worldCanvas.addEventListener('click', () => openSpecSheet(store.get(), last?.egoSpeed ?? store.get().scenario.egoSpeed0));
+worldCanvas.addEventListener('dblclick', () => {
+  const c = store.get();
+  store.patch('scenario', { egoSpeed0: Math.min(c.vehicle.maxSpeed, c.scenario.egoSpeed0 * 2) });
+  updateLabels();
+  ($('speed') as HTMLInputElement).value = String(Math.round(msToKmh(store.get().scenario.egoSpeed0)));
   rebuild();
 });
 $<HTMLSelectElement>('vehicle').addEventListener('change', (e) => {
@@ -263,5 +306,6 @@ function frame(now: number): void {
 }
 
 syncControlsFromConfig();
+updateScenUI();
 fitAll();
 requestAnimationFrame(frame);

@@ -73,6 +73,58 @@ export function injectStyles(): void {
   .eqcard .f { font-size: .84rem; }
   .eqcard .sub { color: ${COLORS.dim}; font-size: .74rem; margin-top: 6px; }
   .reasons { margin-top:8px; font-size:.72rem; color:${COLORS.amber}; }
+
+  .eqcard .hd { display:flex; justify-content:space-between; align-items:center; }
+  .infobtn { width:20px; height:20px; border-radius:50%; border:1px solid ${COLORS.edge};
+    background:${COLORS.panel}; color:${COLORS.cyan}; font:600 11px/1 monospace; cursor:pointer; flex:0 0 auto; }
+  .infobtn:hover { border-color:${COLORS.cyan}; background:rgba(0,224,255,.1); }
+
+  .scenbtn { width:100%; text-align:left; background:${COLORS.panel2}; color:${COLORS.ink};
+    border:1px solid ${COLORS.edge}; border-radius:10px; padding:11px 12px; cursor:pointer; display:flex;
+    justify-content:space-between; align-items:center; }
+  .scenbtn:hover { border-color:${COLORS.cyan}; }
+  .scenbtn .nm { font-weight:700; font-size:.9rem; }
+  .scenbtn .go { color:${COLORS.cyan}; font-size:.72rem; }
+
+  .overlay { position:fixed; inset:0; background:rgba(4,7,12,.72); backdrop-filter:blur(3px);
+    display:none; align-items:center; justify-content:center; z-index:50; }
+  .overlay.show { display:flex; }
+  .modal { background:${COLORS.panel}; border:1px solid ${COLORS.edge}; border-radius:14px; width:min(560px,92vw);
+    max-height:86vh; overflow-y:auto; padding:22px 24px; box-shadow:0 20px 60px rgba(0,0,0,.6); }
+  .modal h3 { color:${COLORS.cyan}; font-size:1.1rem; margin-bottom:4px; }
+  .modal .close { float:right; background:${COLORS.panel2}; color:${COLORS.ink}; border:1px solid ${COLORS.edge};
+    border-radius:8px; padding:5px 10px; font-size:.76rem; cursor:pointer; }
+  .modal .sub { color:${COLORS.dim}; font-size:.82rem; margin:6px 0 14px; }
+  .modal .eqf { font-family:monospace; background:#0a1119; border:1px solid ${COLORS.edge}; border-left:3px solid ${COLORS.cyan};
+    border-radius:8px; padding:12px 14px; margin:10px 0; font-size:1rem; overflow-x:auto; }
+  .rtl { direction:rtl; text-align:right; }
+  .rtl bdi { color:${COLORS.cyan}; margin:0 .12em; }
+  .termrow { padding:9px 2px; border-bottom:1px solid ${COLORS.edge}; }
+  .termrow:last-child { border-bottom:none; }
+  .termrow .sym { font-family:monospace; color:${COLORS.amber}; font-weight:700; font-size:.9rem; margin-bottom:3px; }
+  .termrow .exp { color:${COLORS.ink}; font-size:.86rem; line-height:1.6; }
+  .derivbox { margin-top:14px; background:#0a1119; border:1px solid ${COLORS.edge}; border-radius:10px; padding:12px 14px; }
+  .derivbox .dt { font-family:monospace; font-size:.68rem; color:${COLORS.cyan}; letter-spacing:.14em; text-transform:uppercase; margin-bottom:8px; }
+  .derivbox .dof { color:${COLORS.amber}; font-size:.82rem; margin-bottom:10px; }
+  .dstep { display:flex; gap:12px; align-items:baseline; padding:6px 0; border-bottom:1px solid ${COLORS.edge}; }
+  .dstep:last-child { border-bottom:none; }
+  .dstep .f { font-family:monospace; color:${COLORS.green}; font-size:.9rem; direction:ltr; flex:0 0 auto; }
+  .dstep .n { font-size:.8rem; color:${COLORS.dim}; flex:1; }
+  .modal .note { margin-top:12px; font-size:.8rem; color:${COLORS.dim}; }
+
+  .spec table { width:100%; border-collapse:collapse; }
+  .spec td { padding:8px 6px; border-bottom:1px solid ${COLORS.edge}; font-size:.84rem; vertical-align:top; }
+  .spec td:last-child { text-align:right; font-family:monospace; color:${COLORS.cyan}; white-space:nowrap; }
+  .spec .ex { color:${COLORS.faint}; font-size:.72rem; margin-top:2px; }
+
+  .pickgrid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .pcard { background:${COLORS.panel2}; border:1px solid ${COLORS.edge}; border-radius:12px; overflow:hidden; cursor:pointer; transition:.12s; }
+  .pcard:hover { transform:translateY(-2px); border-color:${COLORS.cyan}; }
+  .pcard.on { border-color:${COLORS.cyan}; box-shadow:0 0 0 1px ${COLORS.cyan}; }
+  .pcard svg { display:block; width:100%; height:auto; background:#0a0f16; }
+  .pcard .body { padding:9px 11px; }
+  .pcard .nm { font-weight:700; font-size:.86rem; }
+  .pcard .ch { font-size:.72rem; color:${COLORS.dim}; line-height:1.4; margin-top:3px; }
   `;
   const el = document.createElement('style');
   el.textContent = css;
