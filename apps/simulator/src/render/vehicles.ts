@@ -9,6 +9,16 @@ const DIMS: Record<VehicleKind, { w: number; h: number }> = {
   truck: { w: 156, h: 200 },
 };
 
+/** Lighten (f>1) or darken (f<1) a #rrggbb colour. */
+function shade(hex: string, f: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  const cl = (v: number): number => Math.max(0, Math.min(255, Math.round(v * f)));
+  const r = cl((n >> 16) & 255);
+  const g = cl((n >> 8) & 255);
+  const b = cl(n & 255);
+  return `rgb(${r},${g},${b})`;
+}
+
 function rr(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
   r = Math.min(r, w / 2, h / 2);
   ctx.beginPath();
@@ -68,13 +78,21 @@ export function drawVehicleRear(
   rr(ctx, cx - roofW / 2 + 6 * scale, roofTop + roofH * 0.16, roofW - 12 * scale, roofH * 0.5, 5 * scale);
   ctx.fill();
 
-  // body (lower half, wider)
-  ctx.fillStyle = v.body;
-  ctx.strokeStyle = 'rgba(0,0,0,.28)';
+  // body (lower half, wider) with a metallic vertical gradient
+  const bodyGrad = ctx.createLinearGradient(0, y + h * 0.4, 0, baseY);
+  bodyGrad.addColorStop(0, shade(v.body, 1.25));
+  bodyGrad.addColorStop(0.45, v.body);
+  bodyGrad.addColorStop(1, shade(v.body, 0.7));
+  ctx.fillStyle = bodyGrad;
+  ctx.strokeStyle = 'rgba(0,0,0,.3)';
   ctx.lineWidth = Math.max(1, 1.4 * scale);
   rr(ctx, x, y + h * 0.4, w, h * 0.6, sedan ? 13 * scale : 8 * scale);
   ctx.fill();
   ctx.stroke();
+  // specular highlight strip
+  ctx.fillStyle = 'rgba(255,255,255,.12)';
+  rr(ctx, x + w * 0.1, y + h * 0.44, w * 0.8, h * 0.05, 3 * scale);
+  ctx.fill();
 
   // body sculpt line
   ctx.strokeStyle = 'rgba(255,255,255,.10)';
@@ -242,36 +260,75 @@ function cone(ctx: CanvasRenderingContext2D, cx: number, baseY: number, scale: n
   ctx.fillRect(cx - bw * 0.28, baseY - hh * 0.62, bw * 0.56, hh * 0.16);
 }
 
-/** A person, feet at baseY. isChild → smaller, brighter. */
+function limb(
+  ctx: CanvasRenderingContext2D,
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+  wdt: number,
+  color: string,
+): void {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = wdt;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(x0, y0);
+  ctx.lineTo(x1, y1);
+  ctx.stroke();
+}
+
+/** A side-view walking person, feet at baseY. Legs/arms swing with `scroll`. */
 export function drawPedestrian(
   ctx: CanvasRenderingContext2D,
   cx: number,
   baseY: number,
   scale: number,
   isChild: boolean,
+  scroll: number,
 ): void {
-  const H = (isChild ? 34 : 52) * scale;
-  const skin = '#e2cba6';
-  const shirt = isChild ? '#ff7043' : '#8a94a4';
-  const legs = isChild ? '#2f5aa8' : '#464e5c';
+  const H = (isChild ? 38 : 58) * scale;
+  const sw = Math.sin(scroll * 0.7 + (isChild ? 1 : 0));
+  const skin = isChild ? '#f2c191' : '#e2cba6';
+  const shirt = isChild ? '#ff6a2a' : '#6f7f92';
+  const shirtDark = isChild ? '#d8531c' : '#5a6879';
+  const pants = isChild ? '#2f5aa8' : '#3a424e';
+
+  const hipY = baseY - H * 0.44;
+  const legLen = H * 0.44;
+  const shoulderX = cx + H * 0.03;
+  const shoulderY = baseY - H * 0.8;
+
   ctx.save();
   // shadow
-  ctx.fillStyle = 'rgba(0,0,0,.3)';
+  ctx.fillStyle = 'rgba(0,0,0,.32)';
   ctx.beginPath();
-  ctx.ellipse(cx, baseY, H * 0.22, 3 * scale, 0, 0, Math.PI * 2);
+  ctx.ellipse(cx, baseY, H * 0.24, 3 * scale, 0, 0, Math.PI * 2);
   ctx.fill();
-  // legs
-  ctx.fillStyle = legs;
-  ctx.fillRect(cx - H * 0.11, baseY - H * 0.42, H * 0.09, H * 0.42);
-  ctx.fillRect(cx + H * 0.02, baseY - H * 0.42, H * 0.09, H * 0.42);
+
+  // back leg then front leg (stride)
+  const aB = -0.45 * sw;
+  const aF = 0.45 * sw;
+  limb(ctx, cx, hipY, cx + Math.sin(aB) * legLen, hipY + Math.cos(aB) * legLen, H * 0.11, pants);
+  // back arm
+  limb(ctx, shoulderX, shoulderY, shoulderX + Math.sin(0.4 * sw) * H * 0.34, shoulderY + Math.cos(0.4 * sw) * H * 0.32, H * 0.08, shirtDark);
   // torso
-  ctx.fillStyle = shirt;
-  rr(ctx, cx - H * 0.15, baseY - H * 0.78, H * 0.3, H * 0.4, 4 * scale);
-  ctx.fill();
-  // head
+  limb(ctx, cx, hipY, shoulderX, shoulderY, H * 0.2, shirt);
+  // front leg
+  limb(ctx, cx, hipY, cx + Math.sin(aF) * legLen, hipY + Math.cos(aF) * legLen, H * 0.11, pants);
+  // front arm (opposite swing)
+  limb(ctx, shoulderX, shoulderY, shoulderX + Math.sin(-0.4 * sw) * H * 0.34, shoulderY + Math.cos(-0.4 * sw) * H * 0.32, H * 0.09, shirt);
+  // head + hair
+  const hr = H * 0.12;
+  const hx = shoulderX + H * 0.02;
+  const hy = shoulderY - hr * 1.2;
   ctx.fillStyle = skin;
   ctx.beginPath();
-  ctx.arc(cx, baseY - H * 0.86, H * 0.12, 0, Math.PI * 2);
+  ctx.arc(hx, hy, hr, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = isChild ? '#7a4a24' : '#2a2f38';
+  ctx.beginPath();
+  ctx.arc(hx, hy - hr * 0.25, hr * 0.95, Math.PI * 1.05, Math.PI * 2.1);
   ctx.fill();
   ctx.restore();
 }

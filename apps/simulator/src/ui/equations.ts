@@ -17,6 +17,13 @@ export function bidi(s: string): string {
   return s.replace(/([^֐-׿\s]+)/g, '<bdi>$1</bdi>');
 }
 
+/** Typeset a plain formula string: e^(...) → superscript, X_word → subscript. */
+export function pretty(s: string): string {
+  return s
+    .replace(/\^\(([^)]*)\)/g, '<sup>$1</sup>')
+    .replace(/([A-Za-z0-9)])_([A-Za-z]+)/g, '$1<sub>$2</sub>');
+}
+
 export const EQ: Record<string, Eq> = {
   braking: {
     title: 'Total Braking Distance',
@@ -148,11 +155,11 @@ export function openEquation(id: string, extra?: Pair): void {
     .map(([s, d]) => `<div class="termrow"><div class="sym">${s}</div><div class="exp rtl">${bidi(d)}</div></div>`)
     .join('');
   const steps = [...e.deriv, ...(extra ? [extra] : [])]
-    .map(([f, n]) => `<div class="dstep"><span class="f">${f}</span><span class="n rtl">${bidi(n)}</span></div>`)
+    .map(([f, n]) => `<div class="dstep"><span class="f">${pretty(f)}</span><span class="n rtl">${bidi(n)}</span></div>`)
     .join('');
   openModal(
     `<h3>${e.title}</h3><div class="sub rtl">${bidi(e.sub)}</div>` +
-      `<div class="eqf">${e.full}</div>` +
+      `<div class="eqf">${pretty(e.full)}</div>` +
       `<div class="derivbox"><div class="dt">פיתוח מתמטי · Derivation</div>` +
       `<div class="dof rtl">${bidi(e.derivOf)}</div>${steps}</div>` +
       `<div style="margin-top:16px">${terms}</div>` +

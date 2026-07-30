@@ -87,7 +87,7 @@ app.innerHTML = `
 
     <div class="eqcard">
       <div class="hd"><div class="t">Required Stopping Distance</div><button class="infobtn" id="eq-braking" title="derivation">i</button></div>
-      <div class="f mono">D_req = V·(T_dsp+T_flt+T_act) + V²/(2μg) + D_buf</div>
+      <div class="f mono">D<sub>req</sub> = V·(T<sub>dsp</sub>+T<sub>flt</sub>+T<sub>act</sub>) + V²/(2μg) + D<sub>buf</sub></div>
       <div class="f mono" id="eq-sub" style="color:${COLORS.est};margin-top:6px"></div>
       <div class="sub">The car brakes once the LiDAR-estimated gap drops below D_req.</div>
       <div id="eq-chips" style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap"></div>

@@ -95,8 +95,11 @@ export function injectStyles(): void {
   .modal .close { float:right; background:${COLORS.panel2}; color:${COLORS.ink}; border:1px solid ${COLORS.edge};
     border-radius:8px; padding:5px 10px; font-size:.76rem; cursor:pointer; }
   .modal .sub { color:${COLORS.dim}; font-size:.82rem; margin:6px 0 14px; }
-  .modal .eqf { font-family:monospace; background:#0a1119; border:1px solid ${COLORS.edge}; border-left:3px solid ${COLORS.cyan};
-    border-radius:8px; padding:12px 14px; margin:10px 0; font-size:1rem; overflow-x:auto; }
+  .modal .eqf { font-family:'Cambria Math','Georgia',serif; background:linear-gradient(180deg,#0c141d,#0a1119);
+    border:1px solid ${COLORS.edge}; border-left:3px solid ${COLORS.cyan}; border-radius:8px;
+    padding:16px 14px; margin:10px 0; font-size:1.25rem; text-align:center; letter-spacing:.01em; color:#eaf2fb; overflow-x:auto; }
+  .modal .eqf sub, .dstep .f sub { font-size:.62em; }
+  .modal .eqf sup, .dstep .f sup { font-size:.7em; }
   .rtl { direction:rtl; text-align:right; }
   .rtl bdi { color:${COLORS.cyan}; margin:0 .12em; }
   .termrow { padding:9px 2px; border-bottom:1px solid ${COLORS.edge}; }
