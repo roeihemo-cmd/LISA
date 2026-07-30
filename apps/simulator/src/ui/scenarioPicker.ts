@@ -1,6 +1,7 @@
 import { SCENARIOS } from '../config/presets';
 import { openModal, closeModal } from './modal';
 import { bidi } from './equations';
+import { L, isRTL, tr } from './lang';
 
 const road = `<polygon points="74,14 146,14 206,116 14,116" fill="#141a24"/>
   <line x1="110" y1="14" x2="110" y2="116" stroke="#2a3646" stroke-width="2" stroke-dasharray="5 6"/>
@@ -37,14 +38,17 @@ function preview(key: string): string {
 }
 
 export function openScenarioPicker(currentKey: string, onPick: (key: string) => void): void {
+  const rtl = isRTL();
+  const cls = rtl ? ' rtl' : '';
   const cards = Object.entries(SCENARIOS)
     .map(
       ([key, sc]) =>
         `<div class="pcard${key === currentKey ? ' on' : ''}" data-key="${key}">${preview(key)}` +
-        `<div class="body"><div class="nm">${sc.name}</div><div class="ch rtl">${bidi(sc.challenge)}</div></div></div>`,
+        `<div class="body"><div class="nm">${sc.name}</div><div class="ch${cls}">${rtl ? bidi(L(sc.challenge)) : L(sc.challenge)}</div></div></div>`,
     )
     .join('');
-  openModal(`<h3>Scenario Select</h3><div class="sub">Pick a driving situation.</div><div class="pickgrid">${cards}</div>`);
+  const title = rtl ? 'בחירת תרחיש' : 'Scenario Select';
+  openModal(`<h3>${title}</h3><div class="sub${cls}">${tr('scenario')}</div><div class="pickgrid">${cards}</div>`);
   document.querySelectorAll<HTMLElement>('.pcard').forEach((c) =>
     c.addEventListener('click', () => {
       onPick(c.dataset.key!);

@@ -36,7 +36,7 @@ export interface ScenarioConfig {
   fog: number; // scene fog/dust alpha [1/m]
   reflectivity: number; // scene target reflectivity rho [-]
   roadLength: number; // [m]
-  challenge: string; // one-line description for the picker
+  challenge: { en: string; he: string }; // one-line description for the picker
   eqs: string[]; // equation ids relevant to this scenario
 }
 

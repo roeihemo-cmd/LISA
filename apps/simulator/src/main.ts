@@ -11,10 +11,13 @@ import { msToKmh, kmhToMs, G } from './core/units';
 import { openEquation } from './ui/equations';
 import { openSpecSheet } from './ui/specSheet';
 import { openScenarioPicker } from './ui/scenarioPicker';
+import { openModal, closeModal } from './ui/modal';
+import { tr, isRTL, hasChosen, setLang, type LS } from './ui/lang';
 
 let scenKey = 'hardBrake';
 
 injectStyles();
+document.documentElement.lang = isRTL() ? 'he' : 'en';
 
 const store = new ConfigStore();
 let pipeline = new Pipeline(store.get());
@@ -31,29 +34,28 @@ let scroll = 0; // metres travelled, for lane-dash animation
 const app = document.getElementById('app')!;
 app.innerHTML = `
   <div class="rail left">
-    <div class="brand">LISA<small>LiDAR · ADAS Bench</small></div>
+    <div class="brand" style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div>LISA<small>${tr('brandSub')}</small></div>
+      <button id="langBtn" class="infobtn" style="width:auto;padding:2px 9px;border-radius:6px;font-size:.68rem">${isRTL() ? 'EN' : 'עב'}</button>
+    </div>
 
-    <div class="sec">Scenario</div>
-    <div class="ctl"><button class="scenbtn" id="scenBtn"><span class="nm" id="scenName"></span><span class="go">CHANGE ▸</span></button></div>
+    <div class="sec">${tr('scenario')}</div>
+    <div class="ctl"><button class="scenbtn" id="scenBtn"><span class="nm" id="scenName"></span><span class="go">${tr('change')}</span></button></div>
 
-    <div class="sec">Vehicle</div>
+    <div class="sec">${tr('vehicle')}</div>
     <div class="ctl"><select id="vehicle">${Object.entries(VEHICLES)
       .map(([k, v]) => `<option value="${k}">${v.name} (μ=${v.mu})</option>`)
       .join('')}</select></div>
 
-    <div class="sec">Parameters</div>
-    <div class="ctl"><label>Set speed <b id="speed-v"></b></label><input type="range" id="speed" min="20" max="180" step="1"></div>
-    <div class="ctl"><label>Fog / Dust α <b id="fog-v"></b></label><input type="range" id="fog" min="0" max="0.3" step="0.005"></div>
-    <div class="ctl"><label>Reflectivity ρ <b id="rho-v"></b></label><input type="range" id="rho" min="0.05" max="1" step="0.05"></div>
-    <div class="ctl"><label>Noise σ <b id="noise-v"></b></label><input type="range" id="noise" min="0" max="0.5" step="0.01"></div>
+    <div class="sec">${tr('parameters')}</div>
+    <div class="ctl"><label>${tr('setSpeed')} <b id="speed-v"></b></label><input type="range" id="speed" min="20" max="180" step="1"></div>
+    <div class="ctl"><label>${tr('fog')} <b id="fog-v"></b></label><input type="range" id="fog" min="0" max="0.3" step="0.005"></div>
+    <div class="ctl"><label>${tr('reflectivity')} <b id="rho-v"></b></label><input type="range" id="rho" min="0.05" max="1" step="0.05"></div>
+    <div class="ctl"><label>${tr('noise')} <b id="noise-v"></b></label><input type="range" id="noise" min="0" max="0.5" step="0.01"></div>
 
-    <div class="sec">Pipeline</div>
-    <div class="mono" style="font-size:.72rem;color:${COLORS.dim};line-height:1.9">
-      world → lidar → estimate<br>→ decision → vehicle
-    </div>
-    <div class="mono" style="font-size:.66rem;color:${COLORS.faint};margin-top:10px">
-      The car acts only on the LiDAR estimate.<br>Only the simulator knows the truth.
-    </div>
+    <div class="sec">${tr('pipeline')}</div>
+    <div class="mono" style="font-size:.72rem;color:${COLORS.dim};line-height:1.9">${tr('pipelineFlow')}</div>
+    <div class="mono" style="font-size:.66rem;color:${COLORS.faint};margin-top:10px">${tr('pipelineNote')}</div>
   </div>
 
   <div class="stage">
@@ -62,47 +64,47 @@ app.innerHTML = `
       <div class="hud mono" id="hud"></div>
       <div class="banner" id="banner" style="display:none"></div>
       <div class="transport">
-        <button id="play">Pause</button>
-        <button id="step">Step</button>
-        <button id="restart">Restart</button>
+        <button id="play">${tr('pause')}</button>
+        <button id="step">${tr('step')}</button>
+        <button id="restart">${tr('restart')}</button>
       </div>
     </div>
   </div>
 
   <div class="rail right">
-    <div class="sec">Analytics</div>
+    <div class="sec">${tr('analytics')}</div>
     <div class="tiles">
-      <div class="tile"><div class="k">Ego Speed</div><div class="v mono" id="t-vego" style="color:${COLORS.cyan}">—</div></div>
-      <div class="tile"><div class="k">Target Speed</div><div class="v mono" id="t-vtgt">—</div></div>
-      <div class="tile"><div class="k">Closing Δv</div><div class="v mono" id="t-closing">—</div></div>
-      <div class="tile"><div class="k">TTC</div><div class="v mono" id="t-ttc">—</div></div>
-      <div class="tile"><div class="k">True Range</div><div class="v mono" id="t-true" style="color:${COLORS.truth}">—</div></div>
-      <div class="tile"><div class="k">Est Range · MA8</div><div class="v mono" id="t-est" style="color:${COLORS.est}">—</div></div>
-      <div class="tile"><div class="k">Sensor Error</div><div class="v mono" id="t-err">—</div></div>
-      <div class="tile"><div class="k">SNR</div><div class="v mono" id="t-snr">—</div></div>
-      <div class="tile"><div class="k">Stop Req</div><div class="v mono" id="t-dreq" style="color:${COLORS.amber}">—</div></div>
-      <div class="tile"><div class="k">Decision</div><div class="v mono" id="t-mode">—</div></div>
+      <div class="tile"><div class="k">${tr('egoSpeed')}</div><div class="v mono" id="t-vego" style="color:${COLORS.cyan}">—</div></div>
+      <div class="tile"><div class="k">${tr('targetSpeed')}</div><div class="v mono" id="t-vtgt">—</div></div>
+      <div class="tile"><div class="k">${tr('closing')}</div><div class="v mono" id="t-closing">—</div></div>
+      <div class="tile"><div class="k">${tr('ttc')}</div><div class="v mono" id="t-ttc">—</div></div>
+      <div class="tile"><div class="k">${tr('trueRange')}</div><div class="v mono" id="t-true" style="color:${COLORS.truth}">—</div></div>
+      <div class="tile"><div class="k">${tr('estRange')}</div><div class="v mono" id="t-est" style="color:${COLORS.est}">—</div></div>
+      <div class="tile"><div class="k">${tr('sensorErr')}</div><div class="v mono" id="t-err">—</div></div>
+      <div class="tile"><div class="k">${tr('snr')}</div><div class="v mono" id="t-snr">—</div></div>
+      <div class="tile"><div class="k">${tr('stopReq')}</div><div class="v mono" id="t-dreq" style="color:${COLORS.amber}">—</div></div>
+      <div class="tile"><div class="k">${tr('decision')}</div><div class="v mono" id="t-mode">—</div></div>
     </div>
     <div class="dvline mono" id="t-dvbreak"></div>
 
     <div class="plot">
-      <div class="cap"><span>Raw Signal r(t)</span><span class="legend"><i style="background:${COLORS.red}"></i>echo+noise</span></div>
+      <div class="cap"><span>${tr('rawSignal')}</span><span class="legend"><i style="background:${COLORS.red}"></i>r(t)</span></div>
       <canvas id="plot-raw" style="width:100%;height:86px"></canvas>
     </div>
     <div class="plot">
-      <div class="cap"><span>Matched Filter y(t)</span><span class="legend"><i style="background:${COLORS.green}"></i>y <i style="background:${COLORS.amber}"></i>threshold</span></div>
+      <div class="cap"><span>${tr('matchedFilter')}</span><span class="legend"><i style="background:${COLORS.green}"></i>y <i style="background:${COLORS.amber}"></i>thr</span></div>
       <canvas id="plot-mf" style="width:100%;height:86px"></canvas>
     </div>
     <div class="plot">
-      <div class="cap"><span>Range vs time</span><span class="legend"><i style="background:${COLORS.truth}"></i>true <i style="background:${COLORS.est}"></i>est</span></div>
+      <div class="cap"><span>${tr('rangeVsTime')}</span><span class="legend"><i style="background:${COLORS.truth}"></i>true <i style="background:${COLORS.est}"></i>est</span></div>
       <canvas id="plot" style="width:100%;height:86px"></canvas>
     </div>
 
     <div class="eqcard">
-      <div class="hd"><div class="t">Required Stopping Distance</div><button class="infobtn" id="eq-braking" title="derivation">i</button></div>
+      <div class="hd"><div class="t">${tr('stopTitle')}</div><button class="infobtn" id="eq-braking" title="derivation">i</button></div>
       <div class="f mono">D<sub>req</sub> = V·(T<sub>dsp</sub>+T<sub>flt</sub>+T<sub>act</sub>) + V²/(2μg) + D<sub>buf</sub></div>
       <div class="f mono" id="eq-sub" style="color:${COLORS.est};margin-top:6px"></div>
-      <div class="sub">The car brakes once the LiDAR-estimated gap drops below D_req.</div>
+      <div class="sub${isRTL() ? ' rtl' : ''}">${tr('stopSub')}</div>
       <div id="eq-chips" style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap"></div>
       <div class="reasons mono" id="reasons"></div>
     </div>
@@ -165,15 +167,16 @@ function updateLabels(): void {
   $('noise-v').textContent = c.lidar.noise.toFixed(2);
 }
 
-function brakingExtra(): [string, string] {
+function brakingExtra(): [string, LS] {
   const c = store.get();
   const ve = last?.egoSpeed ?? c.scenario.egoSpeed0;
   const lat = c.decision.tDsp + c.decision.tFilter + c.vehicle.actuatorLatency;
   const decel = c.vehicle.mu * G;
   const dReq = ve * lat + (ve * ve) / (2 * decel) + c.decision.safetyBuffer;
+  const vk = msToKmh(ve).toFixed(0);
   return [
     `= ${ve.toFixed(1)}·${lat.toFixed(2)} + ${ve.toFixed(1)}²/(2·${decel.toFixed(2)}) + ${c.decision.safetyBuffer} = ${dReq.toFixed(1)} m`,
-    `הצבה מספרית לפי המהירות הנוכחית ${msToKmh(ve).toFixed(0)} קמ״ש.`,
+    { en: `Numeric substitution at the current speed ${vk} km/h.`, he: `הצבה מספרית לפי המהירות הנוכחית ${vk} קמ״ש.` },
   ];
 }
 
@@ -253,10 +256,36 @@ $('noise').addEventListener('input', (e) => {
 
 $('play').addEventListener('click', () => {
   clock.paused = !clock.paused;
-  $('play').textContent = clock.paused ? 'Play' : 'Pause';
+  $('play').textContent = clock.paused ? tr('play') : tr('pause');
 });
 $('step').addEventListener('click', () => clock.step(40));
 $('restart').addEventListener('click', rebuild);
+
+// language toggle → switch and reload (keeps the whole UI in one language)
+$('langBtn').addEventListener('click', () => {
+  setLang(isRTL() ? 'en' : 'he');
+  location.reload();
+});
+
+// first visit → ask the language once
+if (!hasChosen()) {
+  const rtl = isRTL();
+  openModal(
+    `<h3>${tr('chooseLang')} · Language</h3>` +
+      `<div style="display:flex;gap:12px;margin-top:16px">` +
+      `<button class="pick-lang scenbtn" data-l="en" style="justify-content:center">English</button>` +
+      `<button class="pick-lang scenbtn" data-l="he" style="justify-content:center">עברית</button>` +
+      `</div>`,
+  );
+  document.querySelectorAll<HTMLElement>('.pick-lang').forEach((b) =>
+    b.addEventListener('click', () => {
+      const l = b.dataset.l as 'en' | 'he';
+      setLang(l);
+      if (l === 'en' && !rtl) closeModal();
+      else location.reload();
+    }),
+  );
+}
 
 // ---------- render ----------
 function render(f: Frame): void {
@@ -273,9 +302,9 @@ function render(f: Frame): void {
     } <span class="k">${rangeLabel}</span></div>`;
 
   const banner = $('banner');
-  if (f.outcome === 'COLLISION') setBanner(banner, 'COLLISION', COLORS.red);
-  else if (f.outcome === 'STOPPED') setBanner(banner, round ? 'ROUNDABOUT CLEARED' : 'STOPPED SAFELY', COLORS.green);
-  else if (f.decision.inevitable) setBanner(banner, 'COLLISION IMMINENT', COLORS.red);
+  if (f.outcome === 'COLLISION') setBanner(banner, tr('collision'), COLORS.red);
+  else if (f.outcome === 'STOPPED') setBanner(banner, round ? tr('roundaboutClear') : tr('stoppedSafely'), COLORS.green);
+  else if (f.decision.inevitable) setBanner(banner, tr('collisionImminent'), COLORS.red);
   else banner.style.display = 'none';
 
   const err = f.estRange != null ? f.estRange - f.trueRange : NaN;
@@ -301,9 +330,9 @@ function render(f: Frame): void {
   $('reasons').innerHTML = f.decision.reasons.map((r) => `• ${r}`).join('<br>');
 
   // DSP waveform plots (raw r(t) + matched filter y(t))
-  const tr = computeTraces(f.trueRange, c.lidar);
-  drawWaveform(rctx, tr.recv, rawW, rawH, COLORS.red);
-  drawWaveform(mctx, tr.mf, mfW, mfH, COLORS.green, tr.thr);
+  const traces = computeTraces(f.trueRange, c.lidar);
+  drawWaveform(rctx, traces.recv, rawW, rawH, COLORS.red);
+  drawWaveform(mctx, traces.mf, mfW, mfH, COLORS.green, traces.thr);
 
   // live D_required substitution
   const ve = f.egoSpeed;
