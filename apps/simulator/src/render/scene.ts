@@ -6,7 +6,14 @@ export interface SceneOpts {
   egoVisual: VehicleVisual;
   fogAlpha: number;
   scroll: number; // metres travelled, for animation
+  jam?: boolean; // traffic-jam decor (side-lane cars + red light)
 }
+
+const JAM_CARS: VehicleVisual[] = [
+  { kind: 'compact', body: '#5f7488', cab: '#0e1a24', trim: '#9fb3c8' },
+  { kind: 'sedan', body: '#7a8a5f', cab: '#0e1a24', trim: '#c8d69f' },
+  { kind: 'sedan', body: '#8f5560', cab: '#0e1a24', trim: '#ffb020' },
+];
 
 const LEAD_CAR: VehicleVisual = { kind: 'sedan', body: '#8f5560', cab: '#0e1a24', trim: '#ffb020' };
 const ROAD_HALF_M = 5.5; // metres centre→edge
@@ -254,6 +261,35 @@ export function drawScene(ctx: CanvasRenderingContext2D, frame: Frame, opts: Sce
       ctx.closePath();
       ctx.fill();
     }
+  }
+
+  // ---- traffic-jam decor: stopped cars in side lanes + a red light ----
+  if (opts.jam && frame.trueRange > 0 && frame.trueRange < 200) {
+    for (let i = 0; i < 3; i++) {
+      const d = frame.trueRange + i * 13;
+      for (const side of [-1, 1]) {
+        const p = proj(d, side * 3.6);
+        if (p.s > 0.06) drawVehicleRear(ctx, p.x, p.y, Math.max(0.1, p.s), JAM_CARS[(i + (side > 0 ? 1 : 0)) % 3], true);
+      }
+    }
+    // red traffic light beyond the queue
+    const lp = proj(frame.trueRange + 6, ROAD_HALF_M + 1.2);
+    const s = Math.max(0.12, lp.s);
+    ctx.strokeStyle = '#0a0d12';
+    ctx.lineWidth = Math.max(1, 3 * s);
+    ctx.beginPath();
+    ctx.moveTo(lp.x, lp.y);
+    ctx.lineTo(lp.x, lp.y - 60 * s);
+    ctx.stroke();
+    ctx.fillStyle = '#11151c';
+    ctx.fillRect(lp.x - 7 * s, lp.y - 78 * s, 14 * s, 30 * s);
+    ctx.fillStyle = '#ff2d3a';
+    ctx.shadowColor = '#ff2d3a';
+    ctx.shadowBlur = 14 * s;
+    ctx.beginPath();
+    ctx.arc(lp.x, lp.y - 70 * s, 4.5 * s, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
   }
 
   // ---- target ----

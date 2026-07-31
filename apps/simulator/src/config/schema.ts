@@ -23,7 +23,7 @@ export type TargetKind = 'car' | 'obstacle' | 'pedestrian' | 'child';
 export type TargetBehavior = 'brake' | 'stalled' | 'static' | 'cutin' | 'cross' | 'roundabout';
 
 export interface ScenarioConfig {
-  name: string;
+  name: { en: string; he: string };
   egoSpeed0: number; // initial ego speed [m/s]
   leadRange0: number; // initial longitudinal gap to the target [m]
   leadSpeed0: number; // target longitudinal speed [m/s] (0 = static)

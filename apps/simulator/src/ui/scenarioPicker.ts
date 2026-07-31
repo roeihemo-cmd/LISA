@@ -29,6 +29,10 @@ function preview(key: string): string {
   else if (key === 'roadworks')
     el = `<rect x="90" y="52" width="40" height="12" rx="2" fill="#ffb020"/>
       <polygon points="98,52 94,66 102,66" fill="#ff6a2a"/><polygon points="122,52 118,66 126,66" fill="#ff6a2a"/>`;
+  else if (key === 'jam')
+    el = `<rect x="99" y="48" width="22" height="15" rx="4" fill="#7a3038" stroke="#39d98a"/>
+      <rect x="66" y="60" width="18" height="13" rx="3" fill="#39414d"/><rect x="136" y="60" width="18" height="13" rx="3" fill="#39414d"/>
+      <rect x="150" y="26" width="9" height="22" rx="2" fill="#0a0d12"/><circle cx="154.5" cy="33" r="3.4" fill="#ff2d3a"/>`;
   if (key === 'roundabout')
     return `<svg viewBox="0 0 220 120"><rect width="220" height="120" fill="#0a1512"/>
       <circle cx="110" cy="60" r="34" fill="none" stroke="#2a3646" stroke-width="14"/>
@@ -44,7 +48,7 @@ export function openScenarioPicker(currentKey: string, onPick: (key: string) => 
     .map(
       ([key, sc]) =>
         `<div class="pcard${key === currentKey ? ' on' : ''}" data-key="${key}">${preview(key)}` +
-        `<div class="body"><div class="nm">${sc.name}</div><div class="ch${cls}">${rtl ? bidi(L(sc.challenge)) : L(sc.challenge)}</div></div></div>`,
+        `<div class="body"><div class="nm">${L(sc.name)}</div><div class="ch${cls}">${rtl ? bidi(L(sc.challenge)) : L(sc.challenge)}</div></div></div>`,
     )
     .join('');
   const title = rtl ? 'בחירת תרחיש' : 'Scenario Select';

@@ -58,8 +58,13 @@ export const UI: Record<string, LS> = {
   rangeVsTime: { en: 'Range vs time', he: 'טווח לאורך זמן' },
   stopTitle: { en: 'Required Stopping Distance', he: 'מרחק העצירה הנדרש' },
   stopSub: {
-    en: 'The car brakes once the LiDAR-estimated gap drops below D_req.',
-    he: 'הרכב בולם כשהמרחק שהלייזר מעריך יורד מתחת ל-D_req.',
+    en: 'Blind (reaction) distance + mechanical braking V²/(2μg) + safety buffer. The car brakes once the LiDAR-estimated gap drops below this.',
+    he: 'מרחק תגובה עיוור, ועוד בלימה מכנית V²/(2μg), ועוד מרווח ביטחון. הרכב בולם כשהמרחק שהלייזר מעריך יורד מתחת לערך הזה.',
+  },
+  vehicles: { en: 'Ego Speed / Target Speed', he: 'מהירות הרכב / מהירות המטרה' },
+  dvInfo: {
+    en: 'Ego Speed is your own speed. Target Speed is the object ahead, inferred from how fast the LiDAR range changes (never from ground truth). Closing Δv = Ego − Target: how fast you are catching up. TTC = range / Δv.',
+    he: 'מהירות הרכב היא המהירות שלך. מהירות המטרה היא של העצם שלפניך, ונגזרת מקצב השינוי של הטווח שהלייזר מודד (אף פעם לא מהאמת). מהירות ההתקרבות Δv = רכב פחות מטרה: כמה מהר אתה סוגר את הפער. זמן להתנגשות = טווח חלקי Δv.',
   },
   pause: { en: 'Pause', he: 'עצור' },
   play: { en: 'Play', he: 'נגן' },

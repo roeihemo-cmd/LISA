@@ -12,7 +12,8 @@ import { openEquation } from './ui/equations';
 import { openSpecSheet } from './ui/specSheet';
 import { openScenarioPicker } from './ui/scenarioPicker';
 import { openModal, closeModal } from './ui/modal';
-import { tr, isRTL, hasChosen, setLang, type LS } from './ui/lang';
+import { tr, isRTL, hasChosen, setLang, L, UI, type LS } from './ui/lang';
+import { bidi } from './ui/equations';
 
 let scenKey = 'hardBrake';
 
@@ -29,6 +30,7 @@ const series = new TimeSeries([
 let last: Frame | null = null;
 let freezeT = 0;
 let scroll = 0; // metres travelled, for lane-dash animation
+let dispClosing = 0; // display-smoothed closing speed [m/s] (steadier than the decision value)
 
 // ---------- DOM ----------
 const app = document.getElementById('app')!;
@@ -72,7 +74,7 @@ app.innerHTML = `
   </div>
 
   <div class="rail right">
-    <div class="sec">${tr('analytics')}</div>
+    <div class="sec" style="display:flex;justify-content:space-between;align-items:center">${tr('analytics')}<button class="infobtn" id="an-info">i</button></div>
     <div class="tiles">
       <div class="tile"><div class="k">${tr('egoSpeed')}</div><div class="v mono" id="t-vego" style="color:${COLORS.cyan}">—</div></div>
       <div class="tile"><div class="k">${tr('targetSpeed')}</div><div class="v mono" id="t-vtgt">—</div></div>
@@ -182,7 +184,7 @@ function brakingExtra(): [string, LS] {
 
 function updateScenUI(): void {
   const sc = SCENARIOS[scenKey];
-  $('scenName').textContent = sc.name;
+  $('scenName').textContent = L(sc.name);
   $('eq-chips').innerHTML = sc.eqs
     .map(
       (id) =>
@@ -200,6 +202,7 @@ function rebuild(): void {
   series.reset();
   freezeT = 0;
   scroll = 0;
+  dispClosing = 0;
   last = null;
 }
 
@@ -215,14 +218,27 @@ function applyScenario(key: string): void {
 $('scenBtn').addEventListener('click', () => openScenarioPicker(scenKey, applyScenario));
 $('eq-braking').addEventListener('click', () => openEquation('braking', brakingExtra()));
 
-// click the car → live spec sheet · double-click → 2× speed (stress test)
-worldCanvas.addEventListener('click', () => openSpecSheet(store.get(), last?.egoSpeed ?? store.get().scenario.egoSpeed0));
+// click the car → spec sheet · double-click → 2× speed. A short timer lets a
+// double-click cancel the single-click so the spec sheet doesn't swallow it.
+let clickTimer: number | undefined;
+worldCanvas.addEventListener('click', () => {
+  if (clickTimer) window.clearTimeout(clickTimer);
+  clickTimer = window.setTimeout(() => openSpecSheet(store.get(), last?.egoSpeed ?? store.get().scenario.egoSpeed0), 240);
+});
 worldCanvas.addEventListener('dblclick', () => {
+  if (clickTimer) window.clearTimeout(clickTimer);
   const c = store.get();
   store.patch('scenario', { egoSpeed0: Math.min(c.vehicle.maxSpeed, c.scenario.egoSpeed0 * 2) });
   updateLabels();
   ($('speed') as HTMLInputElement).value = String(Math.round(msToKmh(store.get().scenario.egoSpeed0)));
   rebuild();
+});
+
+// analytics explainer
+$('an-info').addEventListener('click', () => {
+  const rtl = isRTL();
+  const t = rtl ? bidi(L(UI.dvInfo)) : L(UI.dvInfo);
+  openModal(`<h3>${L(UI.vehicles)}</h3><div class="sub${rtl ? ' rtl' : ''}" style="line-height:1.7">${t}</div>`);
 });
 $<HTMLSelectElement>('vehicle').addEventListener('change', (e) => {
   const v = VEHICLES[(e.target as HTMLSelectElement).value];
@@ -292,7 +308,7 @@ function render(f: Frame): void {
   const c = store.get();
   const round = !!f.rnd;
   if (round) drawRoundabout(wctx, f, c.vehicle.visual, worldW, worldH);
-  else drawScene(wctx, f, { egoVisual: c.vehicle.visual, fogAlpha: c.lidar.fogAlpha, scroll }, worldW, worldH);
+  else drawScene(wctx, f, { egoVisual: c.vehicle.visual, fogAlpha: c.lidar.fogAlpha, scroll, jam: scenKey === 'jam' }, worldW, worldH);
 
   const rangeLabel = round ? 'm · ISLAND' : 'm · LiDAR';
   $('hud').innerHTML =
@@ -310,10 +326,12 @@ function render(f: Frame): void {
   const err = f.estRange != null ? f.estRange - f.trueRange : NaN;
   const vEgoKmh = msToKmh(f.egoSpeed);
   const locked = f.detected && f.estRange != null && !round;
-  const vTgtKmh = locked ? vEgoKmh - msToKmh(f.estClosing) : NaN;
+  dispClosing += ((locked ? f.estClosing : 0) - dispClosing) * 0.05; // steady display value
+  const dvKmh = msToKmh(dispClosing);
+  const vTgtKmh = locked ? Math.max(0, vEgoKmh - dvKmh) : NaN;
   $('t-vego').textContent = `${vEgoKmh.toFixed(0)} km/h`;
   $('t-vtgt').textContent = round ? 'island' : locked ? `${vTgtKmh.toFixed(0)} km/h` : '—';
-  $('t-closing').textContent = round ? '—' : locked ? `${msToKmh(f.estClosing).toFixed(0)} km/h` : '—';
+  $('t-closing').textContent = round ? '—' : locked ? `${dvKmh.toFixed(0)} km/h` : '—';
   $('t-dvbreak').textContent =
     locked && isFinite(vTgtKmh) ? `Δv = V ${vEgoKmh.toFixed(0)} − T ${vTgtKmh.toFixed(0)} = ${(vEgoKmh - vTgtKmh).toFixed(0)} km/h` : '';
   $('t-ttc').textContent = isFinite(f.decision.ttc) ? `${f.decision.ttc.toFixed(1)} s` : '—';
