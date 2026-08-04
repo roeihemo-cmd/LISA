@@ -75,7 +75,13 @@ export const UI: Record<string, LS> = {
   stoppedSafely: { en: 'STOPPED SAFELY', he: 'עצירה בטוחה' },
   roundaboutClear: { en: 'ROUNDABOUT CLEARED', he: 'הכיכר נוקתה' },
   collisionImminent: { en: 'COLLISION IMMINENT', he: 'התנגשות מתקרבת' },
+  crossedSafely: { en: 'PEDESTRIAN CROSSED — CLEAR', he: 'הולך הרגל חצה — הדרך פנויה' },
   langName: { en: 'English', he: 'עברית' },
+  fogNoteTitle: { en: '⚠️ Sensor limit — heavy fog', he: '⚠️ מגבלת חיישן — ערפל כבד' },
+  fogNote: {
+    en: 'Beer–Lambert attenuation collapses the LiDAR detection range, so the target is seen too late. A laser alone cannot handle heavy fog — real autonomous cars add RADAR (which sees through fog) and sensor fusion.',
+    he: 'ניחות Beer-Lambert מכווץ את טווח הגילוי של הלייזר, ולכן המטרה מזוהה מאוחר מדי. לייזר לבדו אינו מתמודד עם ערפל כבד — רכבים אוטונומיים אמיתיים מוסיפים חיישן RADAR (שרואה דרך הערפל) והיתוך חיישנים.',
+  },
 };
 
 export function tr(key: keyof typeof UI): string {

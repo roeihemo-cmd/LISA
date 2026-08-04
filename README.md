@@ -18,6 +18,21 @@
 
 ---
 
+## 🚧 LISA v2 — the new engineering simulator (in development)
+
+A **ground-up rewrite in TypeScript** with a strict **Truth vs. Perception** pipeline
+(`world → lidar → estimate → decision → vehicle`) — the car decides **only** on what the
+LiDAR measures; only the simulator knows the ground truth. Same physics as the original,
+cleanly modularised, unit-tested, English/Hebrew.
+
+- **▶ Live (preview):** **[roeihemo-cmd.github.io/LISA/next/](https://roeihemo-cmd.github.io/LISA/next/)**
+- **📂 Source:** [`apps/simulator/`](apps/simulator/) — TypeScript + Vite, per-layer modules in [`apps/simulator/src/`](apps/simulator/src/), tests via Vitest.
+- **Scenarios:** Cut-In · Hard Brake · Pedestrian · Child + Ball · Heavy Fog · Road Works · Traffic Jam · Roundabout.
+
+The **original** app (this page's main link) stays live at the site root until v2 surpasses it.
+
+---
+
 ## Overview
 
 This project implements the **complete perception-to-control pipeline of an automotive LiDAR system**:

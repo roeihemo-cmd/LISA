@@ -1,6 +1,6 @@
 import type { Frame } from '../sim/pipeline';
 import { COLORS } from './theme';
-import { drawVehicleRear, drawRoadworks, drawPedestrian, drawBall, type VehicleVisual } from './vehicles';
+import { drawVehicleRear, drawPedestrian, drawBall, type VehicleVisual } from './vehicles';
 
 export interface SceneOpts {
   egoVisual: VehicleVisual;
@@ -14,6 +14,52 @@ const JAM_CARS: VehicleVisual[] = [
   { kind: 'sedan', body: '#7a8a5f', cab: '#0e1a24', trim: '#c8d69f' },
   { kind: 'sedan', body: '#8f5560', cab: '#0e1a24', trim: '#ffb020' },
 ];
+
+/** A full-width road-works barrier that blocks the whole road, plus a row of cones. */
+function drawRoadBlock(ctx: CanvasRenderingContext2D, xL: number, xR: number, baseY: number, s: number): void {
+  const w = xR - xL;
+  const h = Math.max(18, 40 * s);
+  const y = baseY - h;
+  ctx.save();
+  ctx.fillStyle = '#1b1f27';
+  ctx.fillRect(xL, y, w, h);
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(xL, y, w, h);
+  ctx.clip();
+  const st = Math.max(12, 22 * s);
+  for (let i = -h; i < w + h; i += st * 2) {
+    ctx.fillStyle = '#ffb020';
+    ctx.beginPath();
+    ctx.moveTo(xL + i, y);
+    ctx.lineTo(xL + i + st, y);
+    ctx.lineTo(xL + i + st - h, y + h);
+    ctx.lineTo(xL + i - h, y + h);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+  ctx.strokeStyle = '#0a0d12';
+  ctx.lineWidth = Math.max(1, 2.5 * s);
+  ctx.strokeRect(xL, y, w, h);
+  // cones in front, across the road
+  const n = 5;
+  for (let i = 0; i <= n; i++) {
+    const cxp = xL + (i / n) * w;
+    const ch = 22 * s;
+    const bw = 15 * s;
+    ctx.fillStyle = '#ff6a2a';
+    ctx.beginPath();
+    ctx.moveTo(cxp, baseY - ch + 6 * s);
+    ctx.lineTo(cxp - bw / 2, baseY + 6 * s);
+    ctx.lineTo(cxp + bw / 2, baseY + 6 * s);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(cxp - bw * 0.28, baseY - ch * 0.55, bw * 0.56, ch * 0.16);
+  }
+  ctx.restore();
+}
 
 const LEAD_CAR: VehicleVisual = { kind: 'sedan', body: '#8f5560', cab: '#0e1a24', trim: '#ffb020' };
 const ROAD_HALF_M = 5.5; // metres centre→edge
@@ -151,12 +197,16 @@ export function drawScene(ctx: CanvasRenderingContext2D, frame: Frame, opts: Sce
     ctx.stroke();
   }
 
+  // crosswalk distance (pedestrian only) — the centre line is interrupted across it
+  const cwAt = frame.targetKind === 'pedestrian' && frame.trueRange > 0 && frame.trueRange < 160 ? frame.trueRange : null;
+
   // centre dashes
   const spacing = 9;
   const phase = opts.scroll % spacing;
   ctx.fillStyle = 'rgba(240,224,150,.8)';
   for (let d = 160; d >= -phase; d -= spacing) {
     if (d < 0) continue;
+    if (cwAt != null && Math.abs(d - cwAt) < 3.2) continue; // no centre line over the crosswalk
     const a = proj(d, 0);
     const b = proj(d + 3.5, 0);
     const wa = Math.max(0.8, 3.2 * a.s);
@@ -244,15 +294,26 @@ export function drawScene(ctx: CanvasRenderingContext2D, frame: Frame, opts: Sce
     ctx.fill();
   }
 
-  // ---- crosswalk (zebra) under a crossing pedestrian/child ----
-  if ((frame.targetKind === 'pedestrian' || frame.targetKind === 'child') && frame.trueRange > 0 && frame.trueRange < 160) {
-    const dc = frame.trueRange;
-    ctx.fillStyle = 'rgba(236,241,248,.85)';
-    for (let lat = -4.4; lat <= 4.4; lat += 1.45) {
-      const a = proj(dc - 2.4, lat - 0.42);
-      const b = proj(dc - 2.4, lat + 0.42);
-      const cc = proj(dc + 2.4, lat + 0.42);
-      const dd = proj(dc + 2.4, lat - 0.42);
+  // ---- crosswalk (zebra) under a crossing pedestrian only ----
+  if (cwAt != null) {
+    const dc = cwAt;
+    // darker asphalt band so the white bars stand out
+    const q = [proj(dc - 3, -ROAD_HALF_M + 0.3), proj(dc - 3, ROAD_HALF_M - 0.3), proj(dc + 3, ROAD_HALF_M - 0.3), proj(dc + 3, -ROAD_HALF_M + 0.3)];
+    ctx.fillStyle = '#0d131b';
+    ctx.beginPath();
+    ctx.moveTo(q[0].x, q[0].y);
+    ctx.lineTo(q[1].x, q[1].y);
+    ctx.lineTo(q[2].x, q[2].y);
+    ctx.lineTo(q[3].x, q[3].y);
+    ctx.closePath();
+    ctx.fill();
+    // bright white bars along travel direction
+    ctx.fillStyle = '#f4f7fb';
+    for (let lat = -4.2; lat <= 4.2; lat += 1.5) {
+      const a = proj(dc - 2.5, lat - 0.4);
+      const b = proj(dc - 2.5, lat + 0.4);
+      const cc = proj(dc + 2.5, lat + 0.4);
+      const dd = proj(dc + 2.5, lat - 0.4);
       ctx.beginPath();
       ctx.moveTo(a.x, a.y);
       ctx.lineTo(b.x, b.y);
@@ -272,50 +333,82 @@ export function drawScene(ctx: CanvasRenderingContext2D, frame: Frame, opts: Sce
         if (p.s > 0.06) drawVehicleRear(ctx, p.x, p.y, Math.max(0.1, p.s), JAM_CARS[(i + (side > 0 ? 1 : 0)) % 3], true);
       }
     }
-    // red traffic light beyond the queue
-    const lp = proj(frame.trueRange + 6, ROAD_HALF_M + 1.2);
-    const s = Math.max(0.12, lp.s);
-    ctx.strokeStyle = '#0a0d12';
-    ctx.lineWidth = Math.max(1, 3 * s);
-    ctx.beginPath();
-    ctx.moveTo(lp.x, lp.y);
-    ctx.lineTo(lp.x, lp.y - 60 * s);
+    // large overhead traffic light on a gantry above the queue
+    const gd = frame.trueRange + 6;
+    const lft = proj(gd, -ROAD_HALF_M);
+    const rgt = proj(gd, ROAD_HALF_M);
+    const s = Math.max(0.14, proj(gd, 0).s);
+    const beamY = lft.y - 120 * s;
+    ctx.strokeStyle = '#171d27';
+    ctx.lineWidth = Math.max(2, 5 * s);
+    ctx.beginPath(); // posts
+    ctx.moveTo(lft.x, lft.y);
+    ctx.lineTo(lft.x, beamY);
+    ctx.moveTo(rgt.x, rgt.y);
+    ctx.lineTo(rgt.x, beamY);
     ctx.stroke();
-    ctx.fillStyle = '#11151c';
-    ctx.fillRect(lp.x - 7 * s, lp.y - 78 * s, 14 * s, 30 * s);
-    ctx.fillStyle = '#ff2d3a';
-    ctx.shadowColor = '#ff2d3a';
-    ctx.shadowBlur = 14 * s;
+    ctx.lineWidth = Math.max(2, 7 * s); // beam
     ctx.beginPath();
-    ctx.arc(lp.x, lp.y - 70 * s, 4.5 * s, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.shadowBlur = 0;
+    ctx.moveTo(lft.x, beamY);
+    ctx.lineTo(rgt.x, beamY);
+    ctx.stroke();
+    // 3-lamp housing hanging in the centre
+    const cxg = (lft.x + rgt.x) / 2;
+    const boxW = 26 * s;
+    const boxH = 66 * s;
+    ctx.fillStyle = '#0c1017';
+    ctx.strokeStyle = '#2a3342';
+    ctx.lineWidth = Math.max(1, 1.5 * s);
+    ctx.fillRect(cxg - boxW / 2, beamY, boxW, boxH);
+    ctx.strokeRect(cxg - boxW / 2, beamY, boxW, boxH);
+    const lampR = boxW * 0.3;
+    const lamps: [number, string, boolean][] = [
+      [beamY + boxH * 0.2, '#ff2d3a', true],
+      [beamY + boxH * 0.5, '#3a2f16', false],
+      [beamY + boxH * 0.8, '#16321f', false],
+    ];
+    for (const [ly, col, lit] of lamps) {
+      if (lit) {
+        ctx.shadowColor = col;
+        ctx.shadowBlur = 22 * s;
+      }
+      ctx.fillStyle = col;
+      ctx.beginPath();
+      ctx.arc(cxg, ly, lampR, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
   }
 
-  // ---- target ----
+  // ---- target ---- (clamp its base so it never overlaps the ego — a real gap stays visible)
   if (frame.trueRange > 0 && frame.trueRange < 320) {
     const p = proj(frame.trueRange, frame.targetLat);
     const s = Math.max(0.12, p.s);
+    const gapCap = bottomY - 132;
+    const py = Math.min(p.y, gapCap);
     switch (frame.targetKind) {
-      case 'obstacle':
-        drawRoadworks(ctx, p.x, p.y, s);
+      case 'obstacle': {
+        const l = proj(frame.trueRange, -ROAD_HALF_M);
+        const r = proj(frame.trueRange, ROAD_HALF_M);
+        drawRoadBlock(ctx, l.x, r.x, Math.min(l.y, gapCap), s);
         break;
+      }
       case 'pedestrian':
-        drawPedestrian(ctx, p.x, p.y, s, false, opts.scroll);
+        drawPedestrian(ctx, p.x, py, s, false, opts.scroll);
         break;
       case 'child': {
-        drawPedestrian(ctx, p.x, p.y, s, true, opts.scroll);
+        drawPedestrian(ctx, p.x, py, s, true, opts.scroll);
         const b = proj(frame.trueRange, frame.targetLat + 1.0);
-        drawBall(ctx, b.x, b.y, Math.max(0.12, b.s));
+        drawBall(ctx, b.x, Math.min(b.y, gapCap), Math.max(0.12, b.s));
         break;
       }
       default:
-        drawVehicleRear(ctx, p.x, p.y, s, LEAD_CAR, frame.leadSpeed < 0.3 || frame.decision.brake);
+        drawVehicleRear(ctx, p.x, py, s, LEAD_CAR, frame.leadSpeed < 0.3 || frame.decision.brake);
     }
   }
 
   // ---- ego ----
-  drawVehicleRear(ctx, cx, bottomY - 6, 1.0, opts.egoVisual, frame.decision.brake);
+  drawVehicleRear(ctx, cx, bottomY - 6, 0.9, opts.egoVisual, frame.decision.brake);
 
   // ---- fog veil ----
   if (opts.fogAlpha > 0.03) {

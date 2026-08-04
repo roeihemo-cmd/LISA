@@ -8,7 +8,7 @@ import { decide } from '../decision/policy';
 import { Vehicle } from '../vehicle/dynamics';
 import { G, trueRange } from '../core/units';
 
-export type Outcome = 'RUNNING' | 'STOPPED' | 'COLLISION';
+export type Outcome = 'RUNNING' | 'STOPPED' | 'COLLISION' | 'CROSSED';
 
 export interface RoundState {
   phase: 'approach' | 'arc' | 'exit';
@@ -100,6 +100,7 @@ export class Pipeline {
 
       const gap = trueRange as number;
       if (inPath && gap <= COLLISION_GAP) this.outcome = 'COLLISION';
+      else if (target.behavior === 'cross' && Math.abs(target.lat) > 5) this.outcome = 'CROSSED';
       else if (this.vehicle.speed <= STOP_SPEED && target.v <= STOP_SPEED && gap > COLLISION_GAP) this.outcome = 'STOPPED';
 
       this.lastDecision = decision;

@@ -77,26 +77,57 @@ export function drawRoundabout(
     ctx.fill();
   }
 
-  // ego pose by phase (smooth heading blend into/out of the ring)
+  // ego pose by phase — tangential Bézier easements so entry/exit look natural (not robotic)
   let ex = cx;
   let ey = cy + ro;
   let eh = -Math.PI / 2;
   const rnd = frame.rnd!;
+  const EA = 0.62; // merge/depart angular offset (shared → entry & exit are mirror-symmetric)
+  const TH0 = Math.PI / 2 - EA; // entry merge: lower-right of the ring
+  const TH1 = -Math.PI / 2 + EA; // exit depart: upper-right of the ring
+  const mx0 = cx + R * Math.cos(TH0);
+  const my0 = cy + R * Math.sin(TH0);
+  const mt0 = Math.atan2(-Math.cos(TH0), Math.sin(TH0));
+  const mx1 = cx + R * Math.cos(TH1);
+  const my1 = cy + R * Math.sin(TH1);
+  const mt1 = Math.atan2(-Math.cos(TH1), Math.sin(TH1));
+  const preY = cy + R + 46;
+
   if (rnd.phase === 'approach') {
-    const t = smooth(1 - Math.min(1, rnd.approach / 55));
-    ey = H + 20 - t * (H + 20 - (cy + R));
-    eh = -Math.PI / 2;
+    const t = 1 - Math.min(1, rnd.approach / 55);
+    if (t < 0.5) {
+      ex = cx;
+      ey = lerp(H + 20, preY, smooth(t / 0.5));
+      eh = -Math.PI / 2;
+    } else {
+      const u = smooth((t - 0.5) / 0.5);
+      const P: Pt[] = [[cx, preY], [cx, cy + R - 4], [mx0 - Math.cos(mt0) * 52, my0 - Math.sin(mt0) * 52], [mx0, my0]];
+      const p = bez(P, u);
+      const d = bezD(P, u);
+      ex = p[0];
+      ey = p[1];
+      eh = Math.atan2(d[1], d[0]);
+    }
   } else if (rnd.phase === 'arc') {
-    ex = cx + R * Math.cos(rnd.angle);
-    ey = cy + R * Math.sin(rnd.angle);
-    const tan = Math.atan2(-Math.cos(rnd.angle), Math.sin(rnd.angle));
-    const BL = 0.18;
-    if (rnd.prog < BL) eh = lerpAng(-Math.PI / 2, tan, smooth(rnd.prog / BL));
-    else if (rnd.prog > 1 - BL) eh = lerpAng(tan, -Math.PI / 2, smooth((rnd.prog - (1 - BL)) / BL));
-    else eh = tan;
+    const th = TH0 - rnd.prog * (TH0 - TH1);
+    ex = cx + R * Math.cos(th);
+    ey = cy + R * Math.sin(th);
+    eh = Math.atan2(-Math.cos(th), Math.sin(th));
   } else {
-    ey = cy - R - smooth(rnd.prog) * (cy - R + 40);
-    eh = -Math.PI / 2;
+    const p2 = Math.min(1, rnd.prog);
+    if (p2 < 0.5) {
+      const u = smooth(p2 / 0.5);
+      const P: Pt[] = [[mx1, my1], [mx1 + Math.cos(mt1) * 52, my1 + Math.sin(mt1) * 52], [cx, cy - R + 6], [cx, cy - R - 46]];
+      const p = bez(P, u);
+      const d = bezD(P, u);
+      ex = p[0];
+      ey = p[1];
+      eh = Math.atan2(d[1], d[0]);
+    } else {
+      ex = cx;
+      ey = lerp(cy - R - 46, -40, smooth((p2 - 0.5) / 0.5));
+      eh = -Math.PI / 2;
+    }
   }
 
   // rotating LiDAR beam
@@ -186,13 +217,26 @@ function drawWheel(ctx: CanvasRenderingContext2D, x: number, y: number, r: numbe
   ctx.restore();
 }
 
+type Pt = [number, number];
 function smooth(t: number): number {
   return t * t * (3 - 2 * t);
 }
-function lerpAng(a: number, b: number, t: number): number {
-  let d = ((b - a + Math.PI) % (Math.PI * 2)) - Math.PI;
-  if (d < -Math.PI) d += Math.PI * 2;
-  return a + d * t;
+function lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t;
+}
+function bez(p: Pt[], t: number): Pt {
+  const u = 1 - t;
+  return [
+    u * u * u * p[0][0] + 3 * u * u * t * p[1][0] + 3 * u * t * t * p[2][0] + t * t * t * p[3][0],
+    u * u * u * p[0][1] + 3 * u * u * t * p[1][1] + 3 * u * t * t * p[2][1] + t * t * t * p[3][1],
+  ];
+}
+function bezD(p: Pt[], t: number): Pt {
+  const u = 1 - t;
+  return [
+    3 * u * u * (p[1][0] - p[0][0]) + 6 * u * t * (p[2][0] - p[1][0]) + 3 * t * t * (p[3][0] - p[2][0]),
+    3 * u * u * (p[1][1] - p[0][1]) + 6 * u * t * (p[2][1] - p[1][1]) + 3 * t * t * (p[3][1] - p[2][1]),
+  ];
 }
 
 function rrect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {

@@ -1,7 +1,7 @@
 import { injectStyles, COLORS } from './render/theme';
 import { drawScene } from './render/scene';
 import { drawRoundabout } from './render/roundabout';
-import { TimeSeries, drawWaveform } from './render/plot';
+import { drawWaveform } from './render/plot';
 import { computeTraces } from './sensors/lidar';
 import { ConfigStore } from './config/store';
 import { VEHICLES, SCENARIOS } from './config/presets';
@@ -23,10 +23,6 @@ document.documentElement.lang = isRTL() ? 'he' : 'en';
 const store = new ConfigStore();
 let pipeline = new Pipeline(store.get());
 const clock = new SimClock();
-const series = new TimeSeries([
-  { key: 'true', color: COLORS.truth },
-  { key: 'est', color: COLORS.est },
-]);
 let last: Frame | null = null;
 let freezeT = 0;
 let scroll = 0; // metres travelled, for lane-dash animation
@@ -97,10 +93,6 @@ app.innerHTML = `
       <div class="cap"><span>${tr('matchedFilter')}</span><span class="legend"><i style="background:${COLORS.green}"></i>y <i style="background:${COLORS.amber}"></i>thr</span></div>
       <canvas id="plot-mf" style="width:100%;height:86px"></canvas>
     </div>
-    <div class="plot">
-      <div class="cap"><span>${tr('rangeVsTime')}</span><span class="legend"><i style="background:${COLORS.truth}"></i>true <i style="background:${COLORS.est}"></i>est</span></div>
-      <canvas id="plot" style="width:100%;height:86px"></canvas>
-    </div>
 
     <div class="eqcard">
       <div class="hd"><div class="t">${tr('stopTitle')}</div><button class="infobtn" id="eq-braking" title="derivation">i</button></div>
@@ -110,23 +102,21 @@ app.innerHTML = `
       <div id="eq-chips" style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap"></div>
       <div class="reasons mono" id="reasons"></div>
     </div>
+
+    <div class="fognote" id="fognote" style="display:none"></div>
   </div>
 `;
 
 // ---------- element refs ----------
 const $ = <T extends HTMLElement = HTMLElement>(id: string): T => document.getElementById(id) as T;
 const worldCanvas = $<HTMLCanvasElement>('world');
-const plotCanvas = $<HTMLCanvasElement>('plot');
 const rawCanvas = $<HTMLCanvasElement>('plot-raw');
 const mfCanvas = $<HTMLCanvasElement>('plot-mf');
 const wctx = worldCanvas.getContext('2d')!;
-const pctx = plotCanvas.getContext('2d')!;
 const rctx = rawCanvas.getContext('2d')!;
 const mctx = mfCanvas.getContext('2d')!;
 let worldW = 0,
   worldH = 0,
-  plotW = 0,
-  plotH = 0,
   rawW = 0,
   rawH = 0,
   mfW = 0,
@@ -142,7 +132,6 @@ function fit(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D): [number,
 }
 function fitAll(): void {
   [worldW, worldH] = fit(worldCanvas, wctx);
-  [plotW, plotH] = fit(plotCanvas, pctx);
   [rawW, rawH] = fit(rawCanvas, rctx);
   [mfW, mfH] = fit(mfCanvas, mctx);
 }
@@ -199,7 +188,6 @@ function updateScenUI(): void {
 function rebuild(): void {
   pipeline = new Pipeline(store.get());
   clock.t = 0;
-  series.reset();
   freezeT = 0;
   scroll = 0;
   dispClosing = 0;
@@ -218,14 +206,22 @@ function applyScenario(key: string): void {
 $('scenBtn').addEventListener('click', () => openScenarioPicker(scenKey, applyScenario));
 $('eq-braking').addEventListener('click', () => openEquation('braking', brakingExtra()));
 
-// click the car → spec sheet · double-click → 2× speed. A short timer lets a
-// double-click cancel the single-click so the spec sheet doesn't swallow it.
+// click ON THE CAR → spec sheet · double-click ON THE CAR → 2× speed.
+// The ego sits at the bottom-centre of the view; only clicks there count.
+function onEgo(e: MouseEvent): boolean {
+  const x = e.offsetX;
+  const y = e.offsetY;
+  const cx = worldW / 2;
+  return x > cx - 74 && x < cx + 74 && y > worldH - 120 && y < worldH - 2;
+}
 let clickTimer: number | undefined;
-worldCanvas.addEventListener('click', () => {
+worldCanvas.addEventListener('click', (e) => {
+  if (!onEgo(e)) return;
   if (clickTimer) window.clearTimeout(clickTimer);
   clickTimer = window.setTimeout(() => openSpecSheet(store.get(), last?.egoSpeed ?? store.get().scenario.egoSpeed0), 240);
 });
-worldCanvas.addEventListener('dblclick', () => {
+worldCanvas.addEventListener('dblclick', (e) => {
+  if (!onEgo(e)) return;
   if (clickTimer) window.clearTimeout(clickTimer);
   const c = store.get();
   store.patch('scenario', { egoSpeed0: Math.min(c.vehicle.maxSpeed, c.scenario.egoSpeed0 * 2) });
@@ -319,19 +315,35 @@ function render(f: Frame): void {
 
   const banner = $('banner');
   if (f.outcome === 'COLLISION') setBanner(banner, tr('collision'), COLORS.red);
+  else if (f.outcome === 'CROSSED') setBanner(banner, tr('crossedSafely'), COLORS.green);
   else if (f.outcome === 'STOPPED') setBanner(banner, round ? tr('roundaboutClear') : tr('stoppedSafely'), COLORS.green);
   else if (f.decision.inevitable) setBanner(banner, tr('collisionImminent'), COLORS.red);
   else banner.style.display = 'none';
+
+  // heavy-fog note: real systems need RADAR + sensor fusion
+  const fn = $('fognote');
+  if (c.lidar.fogAlpha > 0.14 && (f.estRange == null || f.decision.inevitable)) {
+    const rtl = isRTL();
+    fn.style.display = 'block';
+    fn.innerHTML =
+      `<div class="t${rtl ? ' rtl' : ''}">${tr('fogNoteTitle')}</div>` +
+      `<div class="d${rtl ? ' rtl' : ''}">${rtl ? bidi(L(UI.fogNote)) : L(UI.fogNote)}</div>`;
+  } else fn.style.display = 'none';
 
   const err = f.estRange != null ? f.estRange - f.trueRange : NaN;
   const vEgoKmh = msToKmh(f.egoSpeed);
   const locked = f.detected && f.estRange != null && !round;
   dispClosing += ((locked ? f.estClosing : 0) - dispClosing) * 0.05; // steady display value
-  const dvKmh = msToKmh(dispClosing);
-  const vTgtKmh = locked ? Math.max(0, vEgoKmh - dvKmh) : NaN;
+  let dvShown = msToKmh(dispClosing);
+  let vTgtKmh = locked ? Math.max(0, vEgoKmh - dvShown) : NaN;
+  // a near-zero inferred speed means a stationary object — snap it clean (closing = ego speed)
+  if (locked && vTgtKmh < 6) {
+    vTgtKmh = 0;
+    dvShown = vEgoKmh;
+  }
   $('t-vego').textContent = `${vEgoKmh.toFixed(0)} km/h`;
   $('t-vtgt').textContent = round ? 'island' : locked ? `${vTgtKmh.toFixed(0)} km/h` : '—';
-  $('t-closing').textContent = round ? '—' : locked ? `${dvKmh.toFixed(0)} km/h` : '—';
+  $('t-closing').textContent = round ? '—' : locked ? `${dvShown.toFixed(0)} km/h` : '—';
   $('t-dvbreak').textContent =
     locked && isFinite(vTgtKmh) ? `Δv = V ${vEgoKmh.toFixed(0)} − T ${vTgtKmh.toFixed(0)} = ${(vEgoKmh - vTgtKmh).toFixed(0)} km/h` : '';
   $('t-ttc').textContent = isFinite(f.decision.ttc) ? `${f.decision.ttc.toFixed(1)} s` : '—';
@@ -359,8 +371,6 @@ function render(f: Frame): void {
   $('eq-sub').textContent =
     `= ${ve.toFixed(1)}·${lat.toFixed(2)} + ${ve.toFixed(1)}²/(2·${decel.toFixed(2)}) + ${c.decision.safetyBuffer} ` +
     `= ${f.decision.dReq.toFixed(1)} m`;
-
-  series.draw(pctx, plotW, plotH);
 }
 
 function setBanner(el: HTMLElement, text: string, color: string): void {
@@ -377,10 +387,7 @@ function frame(now: number): void {
   const steps = clock.pump(dt);
   for (let i = 0; i < steps; i++) {
     last = pipeline.tick(DT);
-    if (last.outcome === 'RUNNING') {
-      scroll += last.egoSpeed * DT;
-      series.push({ true: last.trueRange, est: last.estRange ?? NaN });
-    }
+    if (last.outcome === 'RUNNING') scroll += last.egoSpeed * DT;
   }
   if (last) {
     render(last);

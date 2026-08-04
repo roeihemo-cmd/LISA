@@ -63,6 +63,10 @@ export function injectStyles(): void {
   .tile .k { color: ${COLORS.faint}; font-size: .6rem; letter-spacing: .1em; text-transform: uppercase; }
   .tile .v { font-size: 1.15rem; font-weight: 700; margin-top: 2px; }
   .dvline { font-family:monospace; font-size:.74rem; color:${COLORS.dim}; margin:8px 2px 0; text-align:center; }
+  .fognote { border:1px solid ${COLORS.amber}; border-radius:10px; padding:10px 12px; background:#1a1405; margin-top:12px; }
+  .fognote .t { color:${COLORS.amber}; font-weight:700; font-size:.78rem; margin-bottom:5px; }
+  .fognote .d { color:#e6cf9e; font-size:.75rem; line-height:1.6; }
+  .fognote .d bdi { color:#ffd27a; }
 
   .plot { background: ${COLORS.panel2}; border: 1px solid ${COLORS.edge}; border-radius: 10px; padding: 8px; margin-top: 10px; }
   .plot .cap { font-size: .62rem; color: ${COLORS.faint}; letter-spacing:.1em; text-transform:uppercase; margin-bottom:4px; display:flex; justify-content:space-between; }
