@@ -13,7 +13,7 @@ import { openSpecSheet } from './ui/specSheet';
 import { openScenarioPicker } from './ui/scenarioPicker';
 import { openModal, closeModal } from './ui/modal';
 import { tr, isRTL, hasChosen, setLang, L, UI, type LS } from './ui/lang';
-import { bidi } from './ui/equations';
+import { bidi, pretty } from './ui/equations';
 
 let scenKey = 'hardBrake';
 
@@ -230,11 +230,18 @@ worldCanvas.addEventListener('dblclick', (e) => {
   rebuild();
 });
 
-// analytics explainer
+// analytics explainer — formulas shown right next to the explanation
 $('an-info').addEventListener('click', () => {
   const rtl = isRTL();
-  const t = rtl ? bidi(L(UI.dvInfo)) : L(UI.dvInfo);
-  openModal(`<h3>${L(UI.vehicles)}</h3><div class="sub${rtl ? ' rtl' : ''}" style="line-height:1.7">${t}</div>`);
+  const cls = rtl ? ' rtl' : '';
+  const tx = (s: LS): string => (rtl ? bidi(L(s)) : L(s));
+  openModal(
+    `<h3>${L(UI.vehicles)}</h3>` +
+      `<div class="eqf">${pretty('Δv = V_ego − V_target')}</div>` +
+      `<div class="eqf">${pretty('TTC = R / Δv')}</div>` +
+      `<div class="sub${cls}" style="line-height:1.7">${tx(UI.dvInfo)}</div>` +
+      `<div class="note${cls}" style="margin-top:12px">${tx(UI.detectNote)}</div>`,
+  );
 });
 $<HTMLSelectElement>('vehicle').addEventListener('change', (e) => {
   const v = VEHICLES[(e.target as HTMLSelectElement).value];

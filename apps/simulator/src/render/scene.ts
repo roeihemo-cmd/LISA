@@ -15,49 +15,87 @@ const JAM_CARS: VehicleVisual[] = [
   { kind: 'sedan', body: '#8f5560', cab: '#0e1a24', trim: '#ffb020' },
 ];
 
-/** A full-width road-works barrier that blocks the whole road, plus a row of cones. */
+function cone(ctx: CanvasRenderingContext2D, cxp: number, baseY: number, s: number): void {
+  const ch = 22 * s;
+  const bw = 15 * s;
+  ctx.fillStyle = '#ff6a2a';
+  ctx.beginPath();
+  ctx.moveTo(cxp, baseY - ch);
+  ctx.lineTo(cxp - bw / 2, baseY);
+  ctx.lineTo(cxp + bw / 2, baseY);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(cxp - bw * 0.28, baseY - ch * 0.55, bw * 0.56, ch * 0.16);
+}
+
+function worker(ctx: CanvasRenderingContext2D, cxp: number, baseY: number, s: number): void {
+  const H = 30 * s;
+  ctx.fillStyle = '#3a424e'; // legs
+  ctx.fillRect(cxp - H * 0.12, baseY - H * 0.4, H * 0.1, H * 0.4);
+  ctx.fillRect(cxp + H * 0.02, baseY - H * 0.4, H * 0.1, H * 0.4);
+  ctx.fillStyle = '#ff8c1a'; // hi-vis vest
+  ctx.fillRect(cxp - H * 0.16, baseY - H * 0.78, H * 0.32, H * 0.42);
+  ctx.fillStyle = '#e8eef5'; // reflective band
+  ctx.fillRect(cxp - H * 0.16, baseY - H * 0.6, H * 0.32, H * 0.06);
+  ctx.fillStyle = '#e2cba6'; // head
+  ctx.beginPath();
+  ctx.arc(cxp, baseY - H * 0.86, H * 0.11, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#ffd23a'; // hard hat
+  ctx.beginPath();
+  ctx.arc(cxp, baseY - H * 0.9, H * 0.12, Math.PI, Math.PI * 2);
+  ctx.fill();
+}
+
+function excavator(ctx: CanvasRenderingContext2D, cxp: number, baseY: number, s: number): void {
+  const w = 60 * s;
+  const h = 30 * s;
+  ctx.fillStyle = '#12161d'; // tracks
+  ctx.fillRect(cxp - w / 2, baseY - 10 * s, w, 10 * s);
+  ctx.fillStyle = '#f2b90c'; // cab body
+  ctx.fillRect(cxp - w * 0.32, baseY - h, w * 0.5, h - 8 * s);
+  ctx.fillStyle = '#1a2230'; // cab window
+  ctx.fillRect(cxp - w * 0.26, baseY - h + 4 * s, w * 0.2, h * 0.4);
+  // boom arm + bucket
+  ctx.strokeStyle = '#f2b90c';
+  ctx.lineWidth = 5 * s;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(cxp + w * 0.1, baseY - h + 6 * s);
+  ctx.lineTo(cxp + w * 0.42, baseY - h - 6 * s);
+  ctx.lineTo(cxp + w * 0.5, baseY - 6 * s);
+  ctx.stroke();
+  ctx.fillStyle = '#0e1219';
+  ctx.fillRect(cxp + w * 0.44, baseY - 10 * s, 12 * s, 9 * s);
+}
+
+/** A full-width road-works zone: barrier that blocks the road + cones, workers and an excavator. */
 function drawRoadBlock(ctx: CanvasRenderingContext2D, xL: number, xR: number, baseY: number, s: number): void {
   const w = xR - xL;
-  const h = Math.max(18, 40 * s);
+  const h = Math.max(20, 42 * s);
   const y = baseY - h;
   ctx.save();
-  ctx.fillStyle = '#1b1f27';
-  ctx.fillRect(xL, y, w, h);
-  ctx.save();
-  ctx.beginPath();
-  ctx.rect(xL, y, w, h);
-  ctx.clip();
-  const st = Math.max(12, 22 * s);
-  for (let i = -h; i < w + h; i += st * 2) {
-    ctx.fillStyle = '#ffb020';
-    ctx.beginPath();
-    ctx.moveTo(xL + i, y);
-    ctx.lineTo(xL + i + st, y);
-    ctx.lineTo(xL + i + st - h, y + h);
-    ctx.lineTo(xL + i - h, y + h);
-    ctx.closePath();
-    ctx.fill();
+  // clean alternating yellow/black barrier board
+  const stripes = 12;
+  const sw = w / stripes;
+  for (let i = 0; i < stripes; i++) {
+    ctx.fillStyle = i % 2 === 0 ? '#ffb020' : '#141821';
+    ctx.fillRect(xL + i * sw, y, sw + 0.5, h);
   }
-  ctx.restore();
+  ctx.fillStyle = '#0a0d12'; // top & bottom rails
+  ctx.fillRect(xL, y, w, h * 0.14);
+  ctx.fillRect(xL, y + h * 0.86, w, h * 0.14);
   ctx.strokeStyle = '#0a0d12';
-  ctx.lineWidth = Math.max(1, 2.5 * s);
+  ctx.lineWidth = Math.max(1, 2 * s);
   ctx.strokeRect(xL, y, w, h);
-  // cones in front, across the road
-  const n = 5;
-  for (let i = 0; i <= n; i++) {
-    const cxp = xL + (i / n) * w;
-    const ch = 22 * s;
-    const bw = 15 * s;
-    ctx.fillStyle = '#ff6a2a';
-    ctx.beginPath();
-    ctx.moveTo(cxp, baseY - ch + 6 * s);
-    ctx.lineTo(cxp - bw / 2, baseY + 6 * s);
-    ctx.lineTo(cxp + bw / 2, baseY + 6 * s);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(cxp - bw * 0.28, baseY - ch * 0.55, bw * 0.56, ch * 0.16);
-  }
+  // workers on the barrier
+  worker(ctx, xL + w * 0.3, y - 1, s);
+  worker(ctx, xL + w * 0.7, y - 1, s);
+  // excavator to one side, in front
+  excavator(ctx, xL + w * 0.5, baseY + 20 * s, s);
+  // cones across the front
+  for (let i = 0; i <= 5; i++) cone(ctx, xL + (i / 5) * w, baseY + 8 * s, s);
   ctx.restore();
 }
 
@@ -333,44 +371,53 @@ export function drawScene(ctx: CanvasRenderingContext2D, frame: Frame, opts: Sce
         if (p.s > 0.06) drawVehicleRear(ctx, p.x, p.y, Math.max(0.1, p.s), JAM_CARS[(i + (side > 0 ? 1 : 0)) % 3], true);
       }
     }
-    // large overhead traffic light on a gantry above the queue
+    // large overhead traffic light on a tall gantry above the queue
     const gd = frame.trueRange + 6;
-    const lft = proj(gd, -ROAD_HALF_M);
-    const rgt = proj(gd, ROAD_HALF_M);
-    const s = Math.max(0.14, proj(gd, 0).s);
-    const beamY = lft.y - 120 * s;
-    ctx.strokeStyle = '#171d27';
-    ctx.lineWidth = Math.max(2, 5 * s);
+    const lft = proj(gd, -ROAD_HALF_M - 0.5);
+    const rgt = proj(gd, ROAD_HALF_M + 0.5);
+    const s = Math.max(0.18, proj(gd, 0).s);
+    const beamY = Math.min(lft.y, rgt.y) - 190 * s;
+    ctx.strokeStyle = '#1b2230';
+    ctx.lineWidth = Math.max(3, 7 * s);
     ctx.beginPath(); // posts
     ctx.moveTo(lft.x, lft.y);
     ctx.lineTo(lft.x, beamY);
     ctx.moveTo(rgt.x, rgt.y);
     ctx.lineTo(rgt.x, beamY);
     ctx.stroke();
-    ctx.lineWidth = Math.max(2, 7 * s); // beam
+    ctx.lineWidth = Math.max(3, 9 * s); // beam
     ctx.beginPath();
     ctx.moveTo(lft.x, beamY);
     ctx.lineTo(rgt.x, beamY);
     ctx.stroke();
-    // 3-lamp housing hanging in the centre
+    // big 3-lamp housing hanging in the centre
     const cxg = (lft.x + rgt.x) / 2;
-    const boxW = 26 * s;
-    const boxH = 66 * s;
-    ctx.fillStyle = '#0c1017';
-    ctx.strokeStyle = '#2a3342';
-    ctx.lineWidth = Math.max(1, 1.5 * s);
-    ctx.fillRect(cxg - boxW / 2, beamY, boxW, boxH);
-    ctx.strokeRect(cxg - boxW / 2, beamY, boxW, boxH);
-    const lampR = boxW * 0.3;
+    const boxW = 40 * s;
+    const boxH = 108 * s;
+    const top = beamY;
+    ctx.fillStyle = '#0a0e15';
+    ctx.strokeStyle = '#333d4c';
+    ctx.lineWidth = Math.max(1.5, 2 * s);
+    ctx.fillRect(cxg - boxW / 2, top, boxW, boxH);
+    ctx.strokeRect(cxg - boxW / 2, top, boxW, boxH);
+    const lampR = boxW * 0.34;
     const lamps: [number, string, boolean][] = [
-      [beamY + boxH * 0.2, '#ff2d3a', true],
-      [beamY + boxH * 0.5, '#3a2f16', false],
-      [beamY + boxH * 0.8, '#16321f', false],
+      [top + boxH * 0.2, '#ff2d3a', true],
+      [top + boxH * 0.5, '#4a3a12', false],
+      [top + boxH * 0.8, '#123a20', false],
     ];
+    // red glow halo
+    const halo = ctx.createRadialGradient(cxg, top + boxH * 0.2, 0, cxg, top + boxH * 0.2, boxW * 1.4);
+    halo.addColorStop(0, 'rgba(255,45,58,.5)');
+    halo.addColorStop(1, 'rgba(255,45,58,0)');
+    ctx.fillStyle = halo;
+    ctx.beginPath();
+    ctx.arc(cxg, top + boxH * 0.2, boxW * 1.4, 0, Math.PI * 2);
+    ctx.fill();
     for (const [ly, col, lit] of lamps) {
       if (lit) {
         ctx.shadowColor = col;
-        ctx.shadowBlur = 22 * s;
+        ctx.shadowBlur = 26 * s;
       }
       ctx.fillStyle = col;
       ctx.beginPath();
@@ -380,35 +427,34 @@ export function drawScene(ctx: CanvasRenderingContext2D, frame: Frame, opts: Sce
     }
   }
 
-  // ---- target ---- (clamp its base so it never overlaps the ego — a real gap stays visible)
+  // ---- target ---- (true perspective position; scale is capped so a close object
+  // never balloons over the ego — a real stopping gap stays visible, motion stays smooth)
   if (frame.trueRange > 0 && frame.trueRange < 320) {
     const p = proj(frame.trueRange, frame.targetLat);
-    const s = Math.max(0.12, p.s);
-    const gapCap = bottomY - 132;
-    const py = Math.min(p.y, gapCap);
+    const s = Math.min(0.72, Math.max(0.12, p.s));
     switch (frame.targetKind) {
       case 'obstacle': {
         const l = proj(frame.trueRange, -ROAD_HALF_M);
         const r = proj(frame.trueRange, ROAD_HALF_M);
-        drawRoadBlock(ctx, l.x, r.x, Math.min(l.y, gapCap), s);
+        drawRoadBlock(ctx, l.x, r.x, l.y, s);
         break;
       }
       case 'pedestrian':
-        drawPedestrian(ctx, p.x, py, s, false, opts.scroll);
+        drawPedestrian(ctx, p.x, p.y, s, false, opts.scroll);
         break;
       case 'child': {
-        drawPedestrian(ctx, p.x, py, s, true, opts.scroll);
+        drawPedestrian(ctx, p.x, p.y, s, true, opts.scroll);
         const b = proj(frame.trueRange, frame.targetLat + 1.0);
-        drawBall(ctx, b.x, Math.min(b.y, gapCap), Math.max(0.12, b.s));
+        drawBall(ctx, b.x, b.y, Math.min(0.72, Math.max(0.12, b.s)));
         break;
       }
       default:
-        drawVehicleRear(ctx, p.x, py, s, LEAD_CAR, frame.leadSpeed < 0.3 || frame.decision.brake);
+        drawVehicleRear(ctx, p.x, p.y, s, LEAD_CAR, frame.leadSpeed < 0.3 || frame.decision.brake);
     }
   }
 
   // ---- ego ----
-  drawVehicleRear(ctx, cx, bottomY - 6, 0.9, opts.egoVisual, frame.decision.brake);
+  drawVehicleRear(ctx, cx, bottomY - 6, 0.88, opts.egoVisual, frame.decision.brake);
 
   // ---- fog veil ----
   if (opts.fogAlpha > 0.03) {
